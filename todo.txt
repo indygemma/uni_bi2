@@ -4,6 +4,10 @@
 -- * need to parse <data> under <element> in order to determine whether to
 --   extract text or not
 -- * persist all different schema types in services
+-- * implement abgabe specific crawls
+-- * implement code specific crawls
+-- * implement forum specific crawls
+-- * implement register specific crawls
 
 --- @ Validation
 -- * compare persisted schema types.
@@ -14,6 +18,9 @@
 -- * perform matrikelnummer extraction and transformation
 -- * implement general csv export from filtered Object arrays
 -- * <sub> in Forum has to be handled. OR: post-process to identify
+
+--- @ CSV export
+--- * export all person objects, service specific person objects: code, abgabe, forum, register
 
 -------
 -------
