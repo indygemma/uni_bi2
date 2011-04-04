@@ -4,6 +4,7 @@ import BI.Types
 import BI.Binary
 import BI.Common
 import Data.Binary
+import Data.List
 import Codec.Compression.GZip
 import qualified Data.Map as Map
 import qualified Data.ByteString.Lazy as L
@@ -12,38 +13,56 @@ import qualified Data.ByteString.Lazy as L
 
 fetch :: (Object -> Bool) -> Object -> [Object]
 fetch f x = case f x of
-    True -> [x] ++ (select f $ oChildren x)
-    False -> select f $ oChildren x
+    True -> [x] ++ (sselect f $ oChildren x)
+    False -> sselect f $ oChildren x
 
-select :: (Object -> Bool) -> [Object] -> [Object]
-select f xs = concat $ map (fetch f) xs
+sselect :: (Object -> Bool) -> [Object] -> [Object]
+sselect f xs = concat $ map (fetch f) xs
 
 applyFuncs :: [(Object -> Bool)] -> Object -> [Bool]
 applyFuncs fs y = map (\x -> x y) fs
 
-selectWith :: ([Bool] -> Bool) -> [(Object -> Bool)] -> [Object] -> [Object]
-selectWith cond fs = select (\x -> cond $ applyFuncs fs x)
+select :: ([Bool] -> Bool) -> [(Object -> Bool)] -> [Object] -> [Object]
+select cond fs = sselect (\x -> cond $ applyFuncs fs x)
 
-selectAll fs = selectWith and fs
-selectOr fs = selectWith or fs
+selectAll fs = select and fs
+selectOr fs  = select or fs
 
 -- pre-defined predicates
 hasTag tag x = oTag x == tag
 hasAttr attr x = Map.member attr $ oAttributeMap x
+inService service x = oService x == service
 
-attrEq attr value x = case Map.lookup attr $ oAttributeMap x of
-    Just v -> v == value
-    Nothing -> False
+attr cmp a v x = case Map.lookup a $ oAttributeMap x of
+    Just val -> cmp v val
+    Nothing  -> False
+
+attrEq a v x = attr (==) a v x
+attrGt a v x = attr (>)  a v x
+attrLt a v x = attr (<)  a v x
+attrContains a v x = attr (isInfixOf) a v x
+attrStartsWith a v x = attr (isPrefixOf) a v x
+attrEndsWith a v x = attr (isSuffixOf) a v x
 
 isPerson  = hasTag "person"
 isPersons = hasTag "persons"
 isIssues  = hasTag "issues"
 isCustom  = hasTag "custom"
+
+unique x = map head $ (group . sort) x
+
+extractAttr []     x = []
+extractAttr (a:as) x = case Map.lookup a $ oAttributeMap x of
+    Just v  -> v : extractAttr as x
+    Nothing -> extractAttr as x
+
+extractAttrs a xs = map (extractAttr a) xs
+
 ---
 sample = do
     objects <- loadObjects "register_objects.raw"
-    let person = select (hasTag "person") objects
-    let bry = select (attrEq "email" "bry.zachanike@unet.univie.ac.at") objects
+    let person = sselect (hasTag "person") objects
+    let bry = sselect (attr (==) "email" "bry.zachanike@unet.univie.ac.at") objects
     return (True)
 
 --- framework-specific functions

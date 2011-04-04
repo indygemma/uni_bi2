@@ -11,6 +11,7 @@ import Control.Applicative
 handler e = print e
 
 extractWithSchema root output = do
+    let service  = last $ splitPath root
     -- parse the descriptions xml
     instances <- processFile descriptionParser (joinPath [root,"descriptions.xml"])
     -- and write as csv
@@ -35,7 +36,7 @@ extractWithSchema root output = do
         let toParseFilename     = joinPath [root, show theid, thename ++ ".xml"]
         let parseResultFilename = joinPath [output, show theid ++ "_" ++ thename ++ ".csv"]
         putStrLn ("Processing " ++ toParseFilename)
-        result <- processFile (parseWithSchema schema) toParseFilename
+        result <- processFile (parseWithSchema service schema) toParseFilename
         writeFile parseResultFilename $ prettyPrint result
         putStrLn ("Saved to " ++ parseResultFilename)
         return (result)

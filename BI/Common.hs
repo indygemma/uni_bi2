@@ -97,7 +97,7 @@ instance PrettyPrint RNGElement where
 
 instance PrettyPrint Object where
     attributePrettyPrint a = undefined
-    elementPrettyPrint level (Object tag theText ttype attrMap attrTMap children) =
+    elementPrettyPrint level (Object service tag theText ttype attrMap attrTMap children) =
         intercalate "" [element, thechildren]
         where element     = header ++ attributes ++ text ++ "\n"
               text        = case theText of
@@ -191,8 +191,8 @@ elementParser dataID =
 collectAttributes []    = constA Nothing
 collectAttributes names = (listA $ foldl1 (\x y -> x <+> y) $ map getAttrValue names) >>> arr Just
 
-innerParseSchema []       = constA Nothing
-innerParseSchema children = (listA $ getChildren >>> (foldl1 (\x y -> x <+> y) $ map parseWithSchema children)) >>> arr Just
+innerParseSchema service []       = constA Nothing
+innerParseSchema service children = (listA $ getChildren >>> (foldl1 (\x y -> x <+> y) $ map (parseWithSchema service) children)) >>> arr Just
 
 maybeToAttributeMap keys values = case values of
     Nothing -> Map.empty
@@ -214,15 +214,16 @@ extractTextType schema = case (length $ reTextType schema) == 0 of
     True  -> Nothing
     False -> Just $ head $ reTextType schema
 
-parseWithSchema schema =
+parseWithSchema service schema =
     let attributeKeys = keys $ reAttributes schema in
     hasName (reName schema) >>> proc x -> do
     attributes    <- collectAttributes $ attributeKeys -< x
-    children      <- innerParseSchema $ reChildElements schema -< x
-    zeroMChildren <- innerParseSchema $ reZeroOrMore schema -< x
-    oneMChildren  <- innerParseSchema $ reOneOrMore schema -< x
+    children      <- (innerParseSchema service) $ reChildElements schema -< x
+    zeroMChildren <- (innerParseSchema service) $ reZeroOrMore schema -< x
+    oneMChildren  <- (innerParseSchema service) $ reOneOrMore schema -< x
     theText       <- listA getText -< x
     returnA -< Object {
+        oService          = service,
         oTag              = reName schema,
         oText             = extractText theText, -- TODO: extract text from element
         -- TODO: extract text type from element
@@ -238,7 +239,7 @@ parseWithSchema schema =
 test = do
     schemaList <- processFile (elementParser 11) "/home/conrad/Downloads/data/Register/11/persons.rng"
     let schema = head schemaList
-    result <- processFile (parseWithSchema schema) "/home/conrad/Downloads/data/Register/11/persons.xml"
+    result <- processFile (parseWithSchema "Register" schema) "/home/conrad/Downloads/data/Register/11/persons.xml"
     {-let grouped = (oChildren $ head result)-}
     {-return (grouped)-}
     writeFile "persist.schema" $ show schema

@@ -4,7 +4,6 @@
 -- * need to parse <data> under <element> in order to determine whether to
 --   extract text or not
 -- * persist all different schema types in services
--- * store the service name where a given object was collected from
 
 --- @ Validation
 -- * compare persisted schema types.
@@ -18,7 +17,7 @@
 
 -------
 -------
--- DONE
+-- DONE * store the service name where a given object was collected from
 --
 -- DONE use an instance of RNGElement to recursively parse an xml file.
 --

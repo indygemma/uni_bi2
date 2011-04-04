@@ -51,6 +51,7 @@ type InstanceID    = Int
 type ServiceDataID = Int
 
 data Object = Object {
+                oService          :: String,
                 oTag              :: Name,
                 oText             :: Maybe String,
                 oTextType         :: Maybe Type,
