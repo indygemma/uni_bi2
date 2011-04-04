@@ -1,0 +1,30 @@
+name: BI
+version: 1.0
+Cabal-Version: >= 1.2
+build-type: Simple
+
+library
+    build-depends:   base,
+                     containers,
+                     binary,
+                     derive,
+                     filepath,
+                     directory,
+                     hxt,
+                     bytestring,
+                     zlib
+    exposed-modules: BI.Types,
+                     BI.Binary,
+                     BI.Api,
+                     BI.Common
+    ghc-options:     -Wall
+
+executable biextract
+    main-is: BI/Bin/Extract.hs
+
+executable bitransform
+    main-is: BI/Bin/Transform.hs
+
+executable ppxml
+    main-is:       BI/Bin/ppxml.hs
+    build-depends: haskell98

@@ -1,0 +1,34 @@
+-- TODO:
+
+--- @ Extraction
+-- * need to parse <data> under <element> in order to determine whether to
+--   extract text or not
+-- * persist all different schema types in services
+-- * store the service name where a given object was collected from
+
+--- @ Validation
+-- * compare persisted schema types.
+--   Note the ones that don't match. Otherwise aggregate globally like <person>
+
+--- @ Transformation
+-- * find objects that are similar but slightly differ. compare the frequencies
+-- * perform matrikelnummer extraction and transformation
+-- * implement general csv export from filtered Object arrays
+-- * <sub> in Forum has to be handled. OR: post-process to identify
+
+-------
+-------
+-- DONE
+--
+-- DONE use an instance of RNGElement to recursively parse an xml file.
+--
+-- DONE The output is a hierarchical Object, which holds: tag name, attribute map,
+--      child objects.
+--
+--      How to determine relevant objects? by frequency, those that only occur only
+--      once specifies grouping. for example <persons> vs <person>
+--
+--      Use an instance of Eq, and Ord, so the objects can be grouped -> (object, freq).
+--
+-- DONE * aggregate objects that occur in all services: person
+-- DONE * serialize that aggregated object structure, create a little framewrk to perform manipulations on it
