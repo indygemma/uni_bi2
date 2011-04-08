@@ -7,6 +7,7 @@ import BI.Common
 import BI.Directory
 import System.Directory
 import System.FilePath
+import Control.Monad
 import Control.Applicative
 
 handler e = print e
@@ -37,7 +38,7 @@ extractWithSchema root output = do
         let toParseFilename     = joinPath [root, show theid, thename ++ ".xml"]
         let parseResultFilename = joinPath [output, show theid ++ "_" ++ thename ++ ".csv"]
         putStrLn ("Processing " ++ toParseFilename)
-        result <- processFile (parseWithSchema service schema) toParseFilename
+        result <- processFile (parseWithSchema service toParseFilename schema) toParseFilename
         writeFile parseResultFilename $ prettyPrint result
         putStrLn ("Saved to " ++ parseResultFilename)
         return (result)
@@ -50,7 +51,18 @@ main2 = do
     saveObjects (concat objects) "extract.raw"
     where paths = buildPaths "/home/conrad/Downloads/data/" ["Register", "Forum", "Code", "Abgabe"]
 
+extractGeneric root output = do
+    let service = last $ splitPath root
+    paths <- getFilesWithExt root "xml"
+    result <- forM paths $ \path -> do
+        putStrLn $ "processing path " ++ path
+        result <- processFile (genericParser service path) path
+        return (result)
+    {-print $ map (\x -> (oTag x, oAttributeMap x, oChildren x)) $ concat result-}
+    return (concat result)
+
 main = do
-    paths <- getFilesWithExt "/home/conrad/Downloads/data/Forum" "xml"
-    result <- mapM (processFile genericParser) paths
-    print $ map (\x -> (oTag x, oAttributeMap x, oChildren x)) $ concat result
+    results <- mapM (\x -> extractGeneric (fst x) (snd x)) paths
+    saveObjects results "extract_all.raw"
+    print "done"
+    where paths = buildPaths "/home/conrad/Downloads/data/" ["Register", "Forum", "Code", "Abgabe"]

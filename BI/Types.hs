@@ -52,6 +52,7 @@ type ServiceDataID = Int
 
 data Object = Object {
                 oService          :: String,
+                oPath             :: String,
                 oTag              :: Name,
                 oText             :: Maybe String,
                 oTextType         :: Maybe Type,

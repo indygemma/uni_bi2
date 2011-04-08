@@ -98,7 +98,7 @@ instance PrettyPrint RNGElement where
 
 instance PrettyPrint Object where
     attributePrettyPrint a = undefined
-    elementPrettyPrint level (Object service tag theText ttype attrMap attrTMap children) =
+    elementPrettyPrint level (Object service path tag theText ttype attrMap attrTMap children) =
         intercalate "" [element, thechildren]
         where element     = header ++ attributes ++ text ++ "\n"
               text        = case theText of
@@ -141,14 +141,15 @@ attributeParser =
 
 getAttrValues = getAttrl >>> getName &&& (getChildren >>> getText) >>> returnA
 
-genericParser =
+genericParser service path =
     isElem >>> proc x -> do
     name <- getElemName -< x
     attributes <- listA (getName <<< getAttrl) -< x
     attrValues <- listA getAttrValues -< x
-    children <- listA (genericParser <<< getChildren) -< x
+    children <- listA ((genericParser service path) <<< getChildren) -< x
     returnA -< Object {
-        oService          = "test service",
+        oService          = service,
+        oPath             = path,
         oTag              = qualifiedName name,
         oText             = Just "test text", -- TODO: extract text from element
         -- TODO: extract text type from element
@@ -211,8 +212,8 @@ elementParser dataID =
 collectAttributes []    = constA Nothing
 collectAttributes names = (listA $ foldl1 (\x y -> x <+> y) $ map getAttrValue names) >>> arr Just
 
-innerParseSchema service []       = constA Nothing
-innerParseSchema service children = (listA $ getChildren >>> (foldl1 (\x y -> x <+> y) $ map (parseWithSchema service) children)) >>> arr Just
+innerParseSchema service path []       = constA Nothing
+innerParseSchema service path children = (listA $ getChildren >>> (foldl1 (\x y -> x <+> y) $ map (parseWithSchema service path) children)) >>> arr Just
 
 maybeToAttributeMap keys values = case values of
     Nothing -> Map.empty
@@ -234,16 +235,17 @@ extractTextType schema = case (length $ reTextType schema) == 0 of
     True  -> Nothing
     False -> Just $ head $ reTextType schema
 
-parseWithSchema service schema =
+parseWithSchema service path schema =
     let attributeKeys = keys $ reAttributes schema in
     hasName (reName schema) >>> proc x -> do
     attributes    <- collectAttributes $ attributeKeys -< x
-    children      <- (innerParseSchema service) $ reChildElements schema -< x
-    zeroMChildren <- (innerParseSchema service) $ reZeroOrMore schema -< x
-    oneMChildren  <- (innerParseSchema service) $ reOneOrMore schema -< x
+    children      <- (innerParseSchema service path) $ reChildElements schema -< x
+    zeroMChildren <- (innerParseSchema service path) $ reZeroOrMore schema -< x
+    oneMChildren  <- (innerParseSchema service path) $ reOneOrMore schema -< x
     theText       <- listA getText -< x
     returnA -< Object {
         oService          = service,
+        oPath             = path,
         oTag              = reName schema,
         oText             = extractText theText, -- TODO: extract text from element
         -- TODO: extract text type from element
@@ -254,16 +256,6 @@ parseWithSchema service schema =
     }
     where reqAttributeTypes = toAttributeTypeMap $ reAttributes schema
           optAttributeTypes = toAttributeTypeMap $ reOptionalAttrs schema
-
--- TODO: extract all person objects, and analyze them
-test = do
-    schemaList <- processFile (elementParser 11) "/home/conrad/Downloads/data/Register/11/persons.rng"
-    let schema = head schemaList
-    result <- processFile (parseWithSchema "Register" schema) "/home/conrad/Downloads/data/Register/11/persons.xml"
-    {-let grouped = (oChildren $ head result)-}
-    {-return (grouped)-}
-    writeFile "persist.schema" $ show schema
-{- end -}
 
 loadSchema = do
     schemaString <- readFile "persist.schema"
@@ -309,6 +301,3 @@ buildPaths root services =
     zip paths output
     where paths = inputPaths root services
           output = outputPaths services
-
-{-sequence_ :: [IO [Object]] -> IO [Object]-}
-{-sequence_ =  foldr (>>) (return ())-}

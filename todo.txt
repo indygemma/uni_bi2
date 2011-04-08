@@ -13,7 +13,6 @@ for process mining:
 -- * need to parse <data> under <element> in order to determine whether to
 --   extract text or not
 -- * persist all different schema types in services
--- * write general recursive directory crawler that searches for specifc xml files
 -- * implement abgabe specific crawls
 -- * implement code specific crawls
 -- * implement forum specific crawls
@@ -34,6 +33,8 @@ for process mining:
 
 -------
 -------
+-- DONE * include the full path for each object, in order to transform metadata from that path later
+-- DONE * write general recursive directory crawler that searches for specific xml files
 -- DONE * store the service name where a given object was collected from
 --
 -- DONE use an instance of RNGElement to recursively parse an xml file.
