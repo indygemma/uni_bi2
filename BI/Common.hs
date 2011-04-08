@@ -143,17 +143,17 @@ getAttrValues = getAttrl >>> getName &&& (getChildren >>> getText) >>> returnA
 
 genericParser service path =
     isElem >>> proc x -> do
-    name <- getElemName -< x
-    attributes <- listA (getName <<< getAttrl) -< x
-    attrValues <- listA getAttrValues -< x
-    children <- listA ((genericParser service path) <<< getChildren) -< x
+    name       <- getElemName                                          -< x
+    attributes <- listA (getName <<< getAttrl)                         -< x
+    attrValues <- listA getAttrValues                                  -< x
+    children   <- listA ((genericParser service path) <<< getChildren) -< x
+    theText    <- listA (getText <<< getChildren)                      -< x
     returnA -< Object {
         oService          = service,
         oPath             = path,
         oTag              = qualifiedName name,
-        oText             = Just "test text", -- TODO: extract text from element
-        -- TODO: extract text type from element
-        oTextType         = Just "test text type",
+        oText             = extractText theText,
+        oTextType         = Nothing,
         oAttributeMap     = Map.fromList attrValues,
         oAttributeTypeMap = Map.fromList [], -- TODO: merge required and optional attributes? optional ones never occur though
         oChildren         = children
@@ -242,7 +242,7 @@ parseWithSchema service path schema =
     children      <- (innerParseSchema service path) $ reChildElements schema -< x
     zeroMChildren <- (innerParseSchema service path) $ reZeroOrMore schema -< x
     oneMChildren  <- (innerParseSchema service path) $ reOneOrMore schema -< x
-    theText       <- listA getText -< x
+    theText       <- listA (getText <<< getChildren) -< x
     returnA -< Object {
         oService          = service,
         oPath             = path,

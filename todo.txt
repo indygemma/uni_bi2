@@ -10,29 +10,27 @@ for process mining:
 -code, abgabe or forum
 
 --- @ Extraction
--- * need to parse <data> under <element> in order to determine whether to
---   extract text or not
--- * persist all different schema types in services
+1- * need to persistently store the progress and temporary objects...can't process in one go
+2- * extract descriptions.csv as real object to make it queryable
 -- * implement abgabe specific crawls
 -- * implement code specific crawls
 -- * implement forum specific crawls
 -- * implement register specific crawls
 
 --- @ Validation
--- * compare persisted schema types.
---   Note the ones that don't match. Otherwise aggregate globally like <person>
 
 --- @ Transformation
--- * find objects that are similar but slightly differ. compare the frequencies
--- * perform matrikelnummer extraction and transformation
--- * implement general csv export from filtered Object arrays
--- * <sub> in Forum has to be handled. OR: post-process to identify
+5- * implement traversable for object, that allows updating changes
+6- * perform matrikelnummer extraction and transformation
+3- * implement general csv export from filtered Object arrays
+4- * <sub> in Forum has to be handled. OR: post-process to identify
 
 --- @ CSV export
 --- * export all person objects, service specific person objects: code, abgabe, forum, register
 
 -------
 -------
+-- DONE * extract text of element
 -- DONE * include the full path for each object, in order to transform metadata from that path later
 -- DONE * write general recursive directory crawler that searches for specific xml files
 -- DONE * store the service name where a given object was collected from
@@ -49,3 +47,8 @@ for process mining:
 --
 -- DONE * aggregate objects that occur in all services: person
 -- DONE * serialize that aggregated object structure, create a little framewrk to perform manipulations on it
+
+MAYBE * need to parse <data> under <element> in order to determine whether to extract text or not
+MAYBE * persist all different schema types in services
+MAYBE * compare persisted schema types. Note the ones that don't match. Otherwise aggregate globally like <person>
+MAYBE * find objects that are similar but slightly differ. compare the frequencies

@@ -9,6 +9,8 @@ import System.Directory
 import System.FilePath
 import Control.Monad
 import Control.Applicative
+import Control.Parallel.Strategies
+import Control.Parallel
 
 handler e = print e
 
@@ -63,6 +65,7 @@ extractGeneric root output = do
 
 main = do
     results <- mapM (\x -> extractGeneric (fst x) (snd x)) paths
-    saveObjects results "extract_all.raw"
+    let results2 = parBuffer 4 rwhnf results
+    saveObjects results2 "extract_code.raw"
     print "done"
-    where paths = buildPaths "/home/conrad/Downloads/data/" ["Register", "Forum", "Code", "Abgabe"]
+    where paths = buildPaths "/home/conrad/Downloads/data/" ["Code"]
