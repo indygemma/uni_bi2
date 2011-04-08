@@ -27,6 +27,7 @@ import Control.Arrow
 import Control.Monad
 import Control.Applicative
 import Data.List
+import Data.Char
 import Data.Maybe
 import qualified Data.Map as Map
 import System.Directory
@@ -137,6 +138,25 @@ attributeParser =
     name      <- getAttrValue "name" -< x
     datatype  <- getAttrValue "type" <<< deep (hasName "data") -< x
     returnA -< RNGAttribute { raName=name, raDatatype=datatype }
+
+getAttrValues = getAttrl >>> getName &&& (getChildren >>> getText) >>> returnA
+
+genericParser =
+    isElem >>> proc x -> do
+    name <- getElemName -< x
+    attributes <- listA (getName <<< getAttrl) -< x
+    attrValues <- listA getAttrValues -< x
+    children <- listA (genericParser <<< getChildren) -< x
+    returnA -< Object {
+        oService          = "test service",
+        oTag              = qualifiedName name,
+        oText             = Just "test text", -- TODO: extract text from element
+        -- TODO: extract text type from element
+        oTextType         = Just "test text type",
+        oAttributeMap     = Map.fromList attrValues,
+        oAttributeTypeMap = Map.fromList [], -- TODO: merge required and optional attributes? optional ones never occur though
+        oChildren         = children
+    }
 
 -- reuse the previous attributeParser to recursively build an
 -- element object

@@ -1,9 +1,19 @@
 -- TODO:
 
+verification
+--- duplicate entries? zb Kurs count. to make it identifiable.
+--- missing values. categories: missing, reference not available.
+
+--- wie oft hat sich eine person gemeldet.
+
+for process mining:
+-code, abgabe or forum
+
 --- @ Extraction
 -- * need to parse <data> under <element> in order to determine whether to
 --   extract text or not
 -- * persist all different schema types in services
+-- * write general recursive directory crawler that searches for specifc xml files
 -- * implement abgabe specific crawls
 -- * implement code specific crawls
 -- * implement forum specific crawls

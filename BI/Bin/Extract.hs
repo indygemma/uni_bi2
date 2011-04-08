@@ -4,6 +4,7 @@ import BI.Api (saveObjects)
 import BI.Types
 import BI.Binary
 import BI.Common
+import BI.Directory
 import System.Directory
 import System.FilePath
 import Control.Applicative
@@ -44,8 +45,12 @@ extractWithSchema root output = do
         (concat partResults)
     return (concat results)
 
-main = do
+main2 = do
     objects <- mapM (\x -> extractWithSchema (fst x) (snd x)) paths
     saveObjects (concat objects) "extract.raw"
     where paths = buildPaths "/home/conrad/Downloads/data/" ["Register", "Forum", "Code", "Abgabe"]
 
+main = do
+    paths <- getFilesWithExt "/home/conrad/Downloads/data/Forum" "xml"
+    result <- mapM (processFile genericParser) paths
+    print $ map (\x -> (oTag x, oAttributeMap x, oChildren x)) $ concat result
