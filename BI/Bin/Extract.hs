@@ -5,6 +5,7 @@ import BI.Types
 import BI.Binary
 import BI.Common
 import BI.Directory
+import BI.MD5
 import System.Directory
 import System.FilePath
 import Control.Monad
@@ -56,16 +57,18 @@ main2 = do
 extractGeneric root output = do
     let service = last $ splitPath root
     paths <- getFilesWithExt root "xml"
-    result <- forM paths $ \path -> do
+    forM paths $ \path -> do
+        let outputPath = joinPath [output, "raw", (md5 path) ++ ".raw"]
         putStrLn $ "processing path " ++ path
         result <- processFile (genericParser service path) path
-        return (result)
+        putStrLn $ "saving to " ++ outputPath
+        saveObjects result outputPath
+        return ()
     {-print $ map (\x -> (oTag x, oAttributeMap x, oChildren x)) $ concat result-}
-    return (concat result)
+    return ()
 
 main = do
     results <- mapM (\x -> extractGeneric (fst x) (snd x)) paths
     let results2 = parBuffer 4 rwhnf results
-    saveObjects results2 "extract_code.raw"
     print "done"
     where paths = buildPaths "/home/conrad/Downloads/data/" ["Code"]
