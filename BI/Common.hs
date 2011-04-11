@@ -141,20 +141,26 @@ attributeParser =
 
 getAttrValues = getAttrl >>> getName &&& (getChildren >>> getText) >>> returnA
 
-genericParser service path =
+extractTextWithAttrs m t = case Map.lookup "name" m of
+    Just "CONTAINER_DUMP"    -> Nothing
+    Just "CONTAINER_CONTENT" -> Nothing
+    Just _                   -> extractText t
+    Nothing                  -> extractText t
+
+genericParser service path defaultMap =
     isElem >>> proc x -> do
     name       <- getElemName                                          -< x
     attributes <- listA (getName <<< getAttrl)                         -< x
     attrValues <- listA getAttrValues                                  -< x
-    children   <- listA ((genericParser service path) <<< getChildren) -< x
+    children   <- listA ((genericParser service path defaultMap) <<< getChildren) -< x
     theText    <- listA (getText <<< getChildren)                      -< x
     returnA -< Object {
         oService          = service,
         oPath             = path,
         oTag              = qualifiedName name,
-        oText             = extractText theText,
+        oText             = extractTextWithAttrs (Map.fromList attrValues) theText,
         oTextType         = Nothing,
-        oAttributeMap     = Map.fromList attrValues,
+        oAttributeMap     = Map.union (Map.fromList attrValues) defaultMap,
         oAttributeTypeMap = Map.fromList [], -- TODO: merge required and optional attributes? optional ones never occur though
         oChildren         = children
     }

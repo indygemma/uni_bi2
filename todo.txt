@@ -10,19 +10,13 @@ for process mining:
 -code, abgabe or forum
 
 --- @ Extraction
-1- * need to persistently store the progress and temporary objects...can't process in one go
-2- * extract descriptions.csv as real object to make it queryable
 -- * implement abgabe specific crawls
--- * implement code specific crawls
 -- * implement forum specific crawls
 -- * implement register specific crawls
 
 --- @ Validation
 
 --- @ Transformation
-5- * implement traversable for object, that allows updating changes
-6- * perform matrikelnummer extraction and transformation
-3- * implement general csv export from filtered Object arrays
 4- * <sub> in Forum has to be handled. OR: post-process to identify
 
 --- @ CSV export
@@ -30,6 +24,12 @@ for process mining:
 
 -------
 -------
+-- DONE * implement traversable for object, that allows updating changes
+-- ABORT * perform matrikelnummer extraction and transformation
+-- DONE * implement general csv export from filtered Object arrays
+-- DONE * implement code specific crawls
+-- DONE * extract descriptions.csv as real object to make it queryable
+-- DONE * need to persistently store the progress and temporary objects...can't process in one go
 -- DONE * extract text of element
 -- DONE * include the full path for each object, in order to transform metadata from that path later
 -- DONE * write general recursive directory crawler that searches for specific xml files

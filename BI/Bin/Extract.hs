@@ -8,10 +8,14 @@ import BI.Directory
 import BI.MD5
 import System.Directory
 import System.FilePath
+import System.Posix.Files
+import System.Time
 import Control.Monad
 import Control.Applicative
 import Control.Parallel.Strategies
 import Control.Parallel
+import Data.List
+import qualified Data.Map as Map
 
 handler e = print e
 
@@ -54,21 +58,47 @@ main2 = do
     saveObjects (concat objects) "extract.raw"
     where paths = buildPaths "/home/conrad/Downloads/data/" ["Register", "Forum", "Code", "Abgabe"]
 
+doProcessWithContainerTimestamp service path containerFile = do
+    filestatus <- getFileStatus containerFile
+    let defaultMap = Map.fromList [ ("timestamp", show $ modificationTime filestatus)]
+    result <- processFile (genericParser service path defaultMap) path
+    return (result)
+
+doNormalProcess service path = do
+    let defaultMap = Map.fromList []
+    result <- processFile (genericParser service path defaultMap) path
+    return (result)
+
+doProcess service path
+    | isInfixOf "resUnit.xml" path == True = do
+        let file = fst $ splitFileName path
+        let containerFile = file ++ "CONTAINERTYPE.h"
+        fileExists <- doesFileExist containerFile
+        if fileExists then do
+            result <- doProcessWithContainerTimestamp service path containerFile
+            return (result)
+            else doNormalProcess service path
+    | otherwise = doNormalProcess service path
+
 extractGeneric root output = do
     let service = last $ splitPath root
     paths <- getFilesWithExt root "xml"
-    forM paths $ \path -> do
+    objects <- forM paths $ \path -> do
+        let index = case findIndex (\x -> x == path) paths of
+                    Just i  -> i
+                    Nothing -> -1
         let outputPath = joinPath [output, "raw", (md5 path) ++ ".raw"]
-        putStrLn $ "processing path " ++ path
-        result <- processFile (genericParser service path) path
+        putStrLn $ "("++ show index ++ "/"++ (show $ length paths) ++")" ++ " processing path " ++ path
+        result <- doProcess service path
         putStrLn $ "saving to " ++ outputPath
         saveObjects result outputPath
-        return ()
+        return (result)
     {-print $ map (\x -> (oTag x, oAttributeMap x, oChildren x)) $ concat result-}
-    return ()
+    return (concat objects)
 
 main = do
     results <- mapM (\x -> extractGeneric (fst x) (snd x)) paths
-    let results2 = parBuffer 4 rwhnf results
+    let results2 = parBuffer 4 rwhnf $ results
+    saveObjects (concat results2) "all_extracted.raw"
     print "done"
-    where paths = buildPaths "/home/conrad/Downloads/data/" ["Code"]
+    where paths = buildPaths "/home/conrad/Downloads/data/" ["Register", "Forum", "Abgabe", "Code"]

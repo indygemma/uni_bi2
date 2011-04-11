@@ -13,7 +13,9 @@ library
                      hxt,
                      bytestring,
                      zlib,
-                     parallel
+                     parallel,
+                     old-time,
+                     unix
     exposed-modules: BI.Types,
                      BI.Binary,
                      BI.Api,
@@ -31,5 +33,9 @@ executable bitransform
 executable ppxml
     main-is:       BI/Bin/ppxml.hs
     build-depends: haskell98
+    ghc-options:     -Wall -O2 -threaded
+
+executable bicode
+    main-is: BI/Bin/Code.hs
     ghc-options:     -Wall -O2 -threaded
 
