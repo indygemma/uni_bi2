@@ -15,10 +15,18 @@ import System.IO.Unsafe
 
 {-- Data Exploration API / DSL for Objects --}
 
+fetchOneLevel :: (Object -> Bool) -> Object -> [Object]
+fetchOneLevel f x = case f x of
+    True -> [x]
+    False -> []
+
 fetch :: (Object -> Bool) -> Object -> [Object]
 fetch f x = case f x of
     True -> [x] ++ (sselect f $ oChildren x)
     False -> sselect f $ oChildren x
+
+sselectOneLevel :: (Object -> Bool) -> [Object] -> [Object]
+sselectOneLevel f xs = concat $ [concat $ map (fetchOneLevel f) (oChildren x) | x <- xs]
 
 sselect :: (Object -> Bool) -> [Object] -> [Object]
 sselect f xs = concat $ map (fetch f) xs
@@ -28,6 +36,10 @@ applyFuncs fs y = map (\x -> x y) fs
 
 select :: ([Bool] -> Bool) -> [(Object -> Bool)] -> [Object] -> [Object]
 select cond fs = sselect (\x -> cond $ applyFuncs fs x)
+
+-- | Lifts up those child objects that match the filters
+liftChildren :: ([Bool] -> Bool) -> [(Object -> Bool)] -> [Object] -> [Object]
+liftChildren cond fs = sselectOneLevel (\x -> cond $ applyFuncs fs x)
 
 selectAll fs = select and fs
 selectOr fs  = select or fs
@@ -68,24 +80,46 @@ extractAttrs a xs = map (extractAttr a) xs
 --   is supplied, extract the attributes
 exService obj = oService obj
 
+exTag :: Object -> String
 exTag = oTag
 
+exPath :: Object -> String
 exPath = oPath
 
+exText :: Object -> String
 exText obj = case oText obj of
     Just x -> x
     Nothing -> ""
 
-exAttr a obj = case Map.lookup a $ oAttributeMap obj of
-    Just x -> x
-    Nothing -> ""
+exAttr :: String -> Object -> String
+exAttr a obj = exAttrDefault a "" obj
 
+exAttrDefault a defaultValue obj = case Map.lookup a $ oAttributeMap obj of
+    Just x -> x
+    Nothing -> defaultValue
+
+performExtract :: [Object -> String] -> Object -> [String]
 performExtract xs obj = map (\f -> f obj ) xs
 
+extract :: [Object -> String] -> [Object] -> [[String]]
 extract xs = map (performExtract xs)
 
+-- | upLength takes the value of the first parameter, calculates its length
+--   and stores the result into the table with the key given as the second
+--   parameter.
+upLength :: String -> String -> Object -> Object
+upLength a1 a2 (Object service path tag theText ttype attrMap attrTMap children) =
+    Object service path tag theText ttype updatedMap attrTMap children
+    where oldValue = case Map.lookup a1 attrMap of
+                       Just x -> x
+                       Nothing -> ""
+          newValue = length oldValue
+          updatedMap = Map.insert a2 (show newValue) attrMap
+
+performUpdate :: [Object -> Object] -> Object -> Object
 performUpdate xs obj = foldr (\f y -> f y) obj xs
 
+update :: [Object -> Object] -> [Object] -> [Object]
 update xs = map (performUpdate xs)
 
 updateM xs objs = mapM (\x -> return (performUpdate xs x)) objs
@@ -104,6 +138,11 @@ pushDown a1 a2 (Object service path tag theText ttype attrMap attrTMap children)
                       Just v -> v
                       Nothing -> ""
           updatedChildren = map (performPushDown a2 value) children
+
+pullUp f attribute (Object service path tag theText ttype attrMap attrTMap children) =
+    Object service path tag theText ttype updatedMap attrTMap children
+    where updatedMap = Map.insert attribute (result!!0) attrMap
+          result     = f children
 ---
 sample = do
     objects <- loadObjects "register_objects.raw"
@@ -144,3 +183,95 @@ selectFSService selectfs root output =
     return . concat =<< unsafeInterleaveMapIO (parseFile selectfs) =<< getFilesWithExt root "raw"
 
 to_csv header a = header ++ (unlines $ map (intercalate ",") a)
+
+exT1 = [["code", "1", "a0607688", "Conrad Indiono", "indygemma@gmail.com"],
+        ["code", "2", "person005", "asdlaskjd", "lkajsdlj@univie.ac.at"]]
+exT2 = [["code", "2", "person005", "lecturer"],
+        ["code", "2", "person005", "tutor"],
+        ["code", "3", "person004", "lecturer"]]
+exT3 = [["Code","1","","person001","Conan der Barbar","conan.der.barbar@univie.ac.at"],
+        ["Code","3","","person001","Conan der Barbar","conan.der.Barbar@univie.ac.at"]]
+exT4 = [["Code","1","1","person001","tutor"],
+        ["Code","1","1","person002","lecturer"],
+        ["Code","3","1","person001","tutor"]]
+
+joinExample = leftJoin [0,1,3] exT3 exT4 [(6, \key -> "student")]
+
+fetchIndex :: Int -> [String] -> String
+fetchIndex idx ls = ls !! idx
+
+fetchIndices :: [Int] -> [String] -> [String]
+fetchIndices ids ls = map (\idx -> fetchIndex idx ls) ids
+
+fetchIndicesInv :: [Int] -> [String] -> [String]
+fetchIndicesInv ids ls = fetchIndices ([0..length ls - 1] \\ ids) ls
+
+sameKey :: [String] -> [Int] -> [String] -> Bool
+sameKey key ids ls = key == fetchIndices ids ls
+
+mappifyIndex :: [Int] -> [[String]] -> Map.Map [String] [[String]]
+mappifyIndex ids ls =
+    mappifyCollect ids ls startMap
+    where startMap = Map.fromList keys
+          keys     = [(key, []) | key <- map (fetchIndices ids) ls]
+
+mappifyCollect :: [Int] -> [[String]] -> Map.Map [String] [[String]] -> Map.Map [String] [[String]]
+mappifyCollect ids []     theMap = theMap
+mappifyCollect ids (x:xs) theMap =
+    mappifyCollect ids xs newMap
+    where key      = fetchIndices ids x
+          curValue = case Map.lookup key theMap of
+            Just v  -> v
+            Nothing -> []
+          newValue = fetchIndicesInv ids x : curValue
+          newMap   = if sameKey key ids x then Map.insert key newValue theMap else theMap
+
+leftJoin :: [Int] -> [[String]] -> [[String]] -> [(Int, [String] -> String)] -> [[String]]
+leftJoin ids t1 t2 defaultValues =
+    leftJoinCollect ids t1 defaultMap indexMap addedRowLength
+    where indexMap       = mappifyIndex ids t2
+          addedRowLength = length (head t2) - length ids
+          defaultMap     = Map.fromList defaultValues
+
+leftJoinCollect :: [Int] -> [[String]] -> Map.Map Int ([String] -> String) -> Map.Map [String] [[String]] -> Int -> [[String]]
+leftJoinCollect ids []     defaultMap indexMap addedRowLength = []
+leftJoinCollect ids (x:xs) defaultMap indexMap addedRowLength =
+    case Map.lookup key indexMap of
+        Just values ->
+            -- crossproduct with all entries in the indexMap
+            -- TODO: ++ is slow
+            let newitems = map (\v -> key ++ fetchIndicesInv ids x ++ v) values in
+            newitems ++ leftJoinCollect ids xs defaultMap indexMap addedRowLength
+        Nothing ->
+            -- add the required number of columns and insert the default values if available
+            let totalLength = length x + addedRowLength   in
+            let flist       = drop (length x) (buildListFromMap defaultMap (\k -> "") totalLength) in
+            let newrow = key ++ fetchIndicesInv ids x ++ (map (\f -> f key)) flist in
+            newrow : leftJoinCollect ids xs defaultMap indexMap addedRowLength
+    where key = fetchIndices ids x
+
+sampleMap :: Map.Map Int ([String] -> String)
+sampleMap = Map.fromList [(5, \key -> "student"),(3, \key -> "lol")]
+
+sampleList :: [([String] -> String)]
+sampleList = buildListFromMap sampleMap (\key -> "") 10
+
+buildListFromMap :: Map.Map Int ([String] -> String) -> ([String] -> String) -> Int -> [([String] -> String)]
+buildListFromMap defaultMap f l = buildListFromMap_ defaultMap f 0 l
+
+buildListFromMap_ :: Map.Map Int ([String] -> String) -> ([String] -> String) -> Int -> Int -> [([String] -> String)]
+buildListFromMap_ defaultMap f lmin lmax
+    | lmin == lmax = []
+    | otherwise    = result : buildListFromMap_ defaultMap f (lmin+1) lmax
+                     where result = case Map.lookup lmin defaultMap of
+                                        Just v  -> v
+                                        Nothing -> f
+
+{-Code,1,,person001,Conan der Barbar,conan.der.barbar@univie.ac.at-}
+{-Code,1,person001,,Conan der Barbar,conan.der.barbar@univie.ac.at,1,tutor-}
+{-Code,1,1,person001,tutor-}
+
+{-Code,1,<group>,person001,Conan der Barbar,conan.der.barbar@univie.ac.at-}
+{-Code,1,person001,<group>,Conan der Barbar,conan.der.barbar@univie.ac.at,<group>,tutor-}
+{-Code,1,<group>,person001,tutor-}
+

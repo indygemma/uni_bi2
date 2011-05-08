@@ -10,6 +10,7 @@ import System.Directory
 import System.FilePath
 import System.Posix.Files
 import System.Time
+import System.Time.Utils
 import Control.Monad
 import Control.Applicative
 import Control.Parallel.Strategies
@@ -60,7 +61,15 @@ main2 = do
 
 doProcessWithContainerTimestamp service path containerFile = do
     filestatus <- getFileStatus containerFile
-    let defaultMap = Map.fromList [ ("timestamp", show $ modificationTime filestatus)]
+    let timestamp = modificationTime filestatus
+    ct         <- toCalendarTime $ epochToClockTime $ timestamp 
+    let defaultMap = Map.fromList [("timestamp", show timestamp),
+                                   ("year",      show $ ctYear ct),
+                                   ("month",     show $ ctMonth ct),
+                                   ("day",       show $ ctDay ct),
+                                   ("hour",      show $ ctHour ct),
+                                   ("min",       show $ ctMin ct),
+                                   ("sec",       show $ ctSec ct)]
     result <- processFile (genericParser service path defaultMap) path
     return (result)
 
@@ -101,4 +110,4 @@ main = do
     let results2 = parBuffer 4 rwhnf $ results
     saveObjects (concat results2) "all_extracted.raw"
     print "done"
-    where paths = buildPaths "/home/conrad/Downloads/data/" ["Register", "Forum", "Abgabe", "Code"]
+    where paths = buildPaths "/home/conrad/Downloads/data/" ["Register", "Forum", "Abgabe"]

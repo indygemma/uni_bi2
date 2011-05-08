@@ -15,7 +15,8 @@ library
                      zlib,
                      parallel,
                      old-time,
-                     unix
+                     unix,
+                     MissingH
     exposed-modules: BI.Types,
                      BI.Binary,
                      BI.Api,
@@ -37,5 +38,9 @@ executable ppxml
 
 executable bicode
     main-is: BI/Bin/Code.hs
+    ghc-options:     -Wall -O2 -threaded
+
+executable biforum
+    main-is: BI/Bin/Forum.hs
     ghc-options:     -Wall -O2 -threaded
 
