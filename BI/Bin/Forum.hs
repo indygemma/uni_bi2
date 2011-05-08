@@ -25,19 +25,27 @@ upGroupId  name obj = upPathIndex name 3 obj
 --   which lies under "sub" elements, with "parent_id" set as the "id" of the
 --   current object
 upParentID name x@(Object service path tag theText ttype attrMap attrTMap children) =
-    x
+    Object service path tag theText ttype attrMap attrTMap newChildren
     where newAttrMap  = attrMap
           parentID    = case Map.lookup "id" attrMap of
                           Just x -> x
                           Nothing -> ""
           -- need the children of element <sub>
-          {-newChildren = map (injectParentID parentID) $ filter (\x -> (oTag x) == tag) -}
-    {-where z = toZipper x-}
-          {-Just g1 = down z-}
-          {-children = getHole g1 :: Maybe [Object]-}
+          newChildren = map (processSub name parentID) children
 
-{-injectParentID parentID x@(Object service path tag theText ttype attrMap attrTMap children) =-}
-    {-Nothing-}
+-- | helper function that only processes "sub" elements, returns the original object
+--   otherwise.
+processSub :: String -> String -> Object -> Object
+processSub name parentID x@(Object service path tag theText ttype attrMap attrTMap children)
+    | (oTag x) == "sub" = Object service path tag theText ttype attrMap attrTMap newChildren
+    | otherwise         = x
+    where newChildren = map (injectParentID name parentID) children
+
+injectParentID :: String -> String -> Object -> Object
+injectParentID name parentID x@(Object service path tag theText ttype attrMap attrTMap children) =
+    Object service path tag theText ttype updatedMap attrTMap updatedChildren
+    where updatedMap = Map.insert name parentID attrMap
+          updatedChildren = oChildren $ upParentID name x
 
 -- | upStringLength calculates the length
 
@@ -67,30 +75,27 @@ selectIssues objects =
     $ select and [hasTag "entry"]
     $ select and [hasTag "issues"] objects
 
--- NOTE: user voonly. only occurs in some forum entries but nowhere in
+-- NOTE: user "voonly". only occurs in some forum entries but nowhere in
 --       persons.xml. who is this?
 selectForumEntries objects =
     extract [exService,
+             exAttr "course_id",
+             exAttr "user",
+             exAttr "name",
              exAttr "nid",
              exAttr "id",
-             exAttr "text_length",
-             exAttr "subject_length"]
-    {-extract [exService,-}
-             {-exAttr "course_id",-}
-             {-exAttr "user",-}
-             {-exAttr "name",-}
-             {-exAttr "nid",-}
-             {-exAttr "id",-}
-             {-exAttr "parent_id",-}
-             {-exAttr "date",-}
-             {-exAttr "subject_length",-}
-             {-exAttr "text_length"]-}
+             exAttr "parent_id",
+             exAttr "date",
+             exAttr "subject_length",
+             exAttr "text_length"]
     $ update [
         upLength "subject" "subject_length",
         upLength "text" "text_length",
         pullUp (\children -> concat $ extract [exText] $ select and [hasTag "subject"] children) "subject",
         pullUp (\children -> concat $ extract [exText] $ select and [hasTag "text"] children) "text",
-        upParentID "parent_id"]
+        upCourseId "course_id"]
+    $ select and [hasTag "entry"]
+    $ update [ upParentID "parent_id" ]
     $ liftChildren and [hasTag "entry"]
     $ update [pushDown "nid" "nid",
               upCourseId "course_id"]
@@ -119,7 +124,7 @@ allIssues objects filename = do
 
 allForumEntries objects filename = do
     writeFile filename
-        $ to_csv "whatever\n"
+        $ to_csv "service,course_id,user,name,nid,id,parent_id,date,subject_length,text_length\n"
         $ selectForumEntries objects
 
 main = do
