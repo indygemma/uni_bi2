@@ -75,6 +75,12 @@ selectIssues objects =
     $ select and [hasTag "entry"]
     $ select and [hasTag "issues"] objects
 
+-- compare person ids occuring in forum entries vs those that occur in persons.xml
+comparePersonIds objects filename = do
+    let person_objects = unique $ extract [exAttr "id"] $ select and [hasTag "person", inPath "persons.xml"] objects
+    let forum_persons = unique $ extract [exAttr "user"] $ select and [hasTag "entry"] $ select and [hasTag "entries"] objects
+    writeFile filename $ show $ concat (forum_persons \\ person_objects)
+
 -- NOTE: user "voonly". only occurs in some forum entries but nowhere in
 --       persons.xml. who is this?
 selectForumEntries objects =
@@ -91,8 +97,23 @@ selectForumEntries objects =
     $ update [
         upLength "subject" "subject_length",
         upLength "text" "text_length",
-        pullUp (\children -> concat $ extract [exText] $ select and [hasTag "subject"] children) "subject",
-        pullUp (\children -> concat $ extract [exText] $ select and [hasTag "text"] children) "text",
+        pullUp (\o -> concat $ extract [exText] $ select and [hasTag "subject"] $ oChildren o) "subject",
+        pullUp (\o -> concat $ extract [exText] $ select and [hasTag "text"] $ oChildren o) "text",
+        upCourseId "course_id"]
+    $ select and [hasTag "entry"]
+    $ update [ upParentID "parent_id" ]
+    $ liftChildren and [hasTag "entry"]
+    $ update [pushDown "nid" "nid",
+              upCourseId "course_id"]
+    $ select and [hasTag "entries"] objects
+
+selectCodeServiceUsersInForum objects = unique
+    $ extract [exAttr "course_id", exAttr "user"]
+    $ update [
+        upLength "subject" "subject_length",
+        upLength "text" "text_length",
+        pullUp (\o -> concat $ extract [exText] $ select and [hasTag "subject"] $ oChildren o) "subject",
+        pullUp (\o -> concat $ extract [exText] $ select and [hasTag "text"] $ oChildren o) "text",
         upCourseId "course_id"]
     $ select and [hasTag "entry"]
     $ update [ upParentID "parent_id" ]
@@ -127,9 +148,16 @@ allForumEntries objects filename = do
         $ to_csv "service,course_id,user,name,nid,id,parent_id,date,subject_length,text_length\n"
         $ selectForumEntries objects
 
+allCodeServiceInForum objects filename = do
+    writeFile filename
+        $ to_csv "course_id,username\n"
+        $ selectCodeServiceUsersInForum objects
+
 main = do
     objects <- selectFS and [inService "Forum"]
     allInstances              objects "forum_courses.csv"
     allPersons                objects "forum_persons.csv"
     allIssues                 objects "forum_issues.csv"
     allForumEntries           objects "forum_entries.csv"
+    allCodeServiceInForum     objects "forum_unique_users.csv"
+    comparePersonIds          objects "forum_compare_userids"

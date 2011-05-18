@@ -44,3 +44,7 @@ executable biforum
     main-is: BI/Bin/Forum.hs
     ghc-options:     -Wall -O2 -threaded
 
+executable biabgabe
+    main-is: BI/Bin/Abgabe.hs
+    ghc-options:     -Wall -O2 -threaded
+

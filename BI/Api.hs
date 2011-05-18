@@ -139,10 +139,10 @@ pushDown a1 a2 (Object service path tag theText ttype attrMap attrTMap children)
                       Nothing -> ""
           updatedChildren = map (performPushDown a2 value) children
 
-pullUp f attribute (Object service path tag theText ttype attrMap attrTMap children) =
+pullUp f attribute x@(Object service path tag theText ttype attrMap attrTMap children) =
     Object service path tag theText ttype updatedMap attrTMap children
     where updatedMap = Map.insert attribute (result!!0) attrMap
-          result     = f children
+          result     = f x
 ---
 sample = do
     objects <- loadObjects "register_objects.raw"
