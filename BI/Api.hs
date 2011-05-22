@@ -163,7 +163,7 @@ saveObjects objects filename = do
 --   individual "raw" files.
 selectFS cond fs = do
     objects <- mapM (\x -> selectFSService (select cond fs) (fst x) (snd x)) paths
-    return (concat $ parBuffer 4 rwhnf objects)
+    return (concat $ (objects `using` (parBuffer 4 rseq)))
     where paths = buildPaths "result/" ["Register", "Abgabe", "Forum", "Code"]
 
 parseFile selectfs path = do
