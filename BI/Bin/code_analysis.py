@@ -187,9 +187,9 @@ def process_success_rate_by_user():
     """
     data = load_file("code_unittest_results.csv")
     USER_COL = 3
-    SUCCESS_COL = 6
-    FAILURE_COL = 8
-    ERROR_COL   = 9
+    SUCCESS_COL = 12
+    FAILURE_COL = 14
+    ERROR_COL   = 15
     line_by_user = _lines_by_user(data, USER_COL)
     return calculate_success_rates(line_by_user, SUCCESS_COL, [FAILURE_COL, ERROR_COL])
 

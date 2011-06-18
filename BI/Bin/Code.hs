@@ -190,7 +190,7 @@ allTopicPersonAssignments objects filename = do
 
 allUnittestResults objects filename = do
     writeFile filename
-        $ to_csv "service,course_id,group_id,person_id,topic_id,date,success,warning,failure,error,info,timeout\n"
+        $ to_csv "service,course_id,group_id,person_id,topic_id,timestamp,year,month,day,hour,min,sec,success,warning,failure,error,info,timeout\n"
         $ selectUnittestResults objects
 
 allPersonLecturers objects filename = do
@@ -216,7 +216,7 @@ main = do
     {-allPersons                objects "code_persons.csv"-}
     {-allLecturers              objects "code_lecturers.csv"-}
     {-allTopicPersonAssignments objects "code_topic_person_assignments.csv"-}
-    {-allUnittestResults        objects "code_unittest_results.csv"-}
+    allUnittestResults        objects "code_unittest_results.csv"
     {-allPersonLecturers objects "code_person_lecturers.csv"-}
     {-allPersonTopics objects "code_person_lecturers_topicids.csv"-}
     allFactTable objects "code_fact_table.csv"
