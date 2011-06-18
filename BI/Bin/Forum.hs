@@ -107,6 +107,27 @@ selectForumEntries objects =
               upCourseId "course_id"]
     $ select and [hasTag "entries"] objects
 
+selectForum99Entries objects =
+    extract [exService,
+             exAttr "course_id",
+             exAttr "user",
+             exAttr "nid",
+             exAttr "id",
+             exAttr "subject_length",
+             exAttr "text_length"]
+    $ update [
+        upLength "subject" "subject_length",
+        upLength "text" "text_length",
+        pullUp (\o -> concat $ extract [exText] $ select and [hasTag "subject"] $ oChildren o) "subject",
+        pullUp (\o -> concat $ extract [exText] $ select and [hasTag "text"] $ oChildren o) "text",
+        upCourseId "course_id"]
+    $ select and [hasTag "entry"]
+    $ update [ upParentID "parent_id" ]
+    $ select and [attrEq "course_id" "99"]
+    $ update [pushDown "nid" "nid",
+              upCourseId "course_id"]
+    $ select and [hasTag "entries"] objects
+
 selectCodeServiceUsersInForum objects = unique
     $ extract [exAttr "course_id", exAttr "user"]
     $ update [
@@ -148,6 +169,11 @@ allForumEntries objects filename = do
         $ to_csv "service,course_id,user,name,nid,id,parent_id,date,subject_length,text_length\n"
         $ selectForumEntries objects
 
+allForum99Entries objects filename = do
+    writeFile filename
+        $ to_csv "service,course_id,user,nid,id,subject_length,text_length\n"
+        $ selectForum99Entries objects
+
 allCodeServiceInForum objects filename = do
     writeFile filename
         $ to_csv "course_id,username\n"
@@ -159,5 +185,6 @@ main = do
     allPersons                objects "forum_persons.csv"
     allIssues                 objects "forum_issues.csv"
     allForumEntries           objects "forum_entries.csv"
+    allForum99Entries         objects "forum_99_entries.csv"
     allCodeServiceInForum     objects "forum_unique_users.csv"
     comparePersonIds          objects "forum_compare_userids"

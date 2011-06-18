@@ -110,4 +110,4 @@ main = do
     let results2 = results `using` parBuffer 4 rwhnf
     saveObjects (concat results2) "all_extracted.raw"
     print "done"
-    where paths = buildPaths "/home/conrad/Downloads/data/" ["Register", "Forum", "Abgabe"]
+    where paths = buildPaths "/home/conrad/Downloads/data/" ["Register", "Forum", "Abgabe", "Code"]
