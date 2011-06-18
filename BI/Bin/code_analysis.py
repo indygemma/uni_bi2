@@ -67,7 +67,7 @@ def _counts_by_user(line_by_user):
         counts[username] = len(forum_entries)
     return counts
 
-def _percent_count_by_user(line_by_user):
+def _percent_count_by_user(line_by_user,total=None):
     """
     input:
 
@@ -78,10 +78,11 @@ def _percent_count_by_user(line_by_user):
         dict with "username" -> count [Integer]
     """
     counts = _counts_by_user(line_by_user)
-    return dict((username, percent_count(counts, username)) \
+    result = dict((username, percent_count(counts, username, total)) \
                 for username in counts)
+    return result
 
-def percent_count(counts, username):
+def percent_count(counts, username, total=None):
     """
     input:
 
@@ -91,7 +92,8 @@ def percent_count(counts, username):
 
         count as percentage of total counts [float]
     """
-    total = sum(counts.values())
+    if not total:
+        total = sum(counts.values())
     return float(counts[username]) / float(total)
 
 def load_file(filename):
@@ -108,12 +110,25 @@ def process_read_by_user():
 
     returns a dict with
 
-        "username" -> forum entries count
+        "username" -> forum entries count [float]
 
     """
     data = load_file("forum_readlist.csv")
+    entries_data = load_file("forum_99_entries.csv")
     line_by_user = _lines_by_user(data, 2)
-    counts = _percent_count_by_user(line_by_user)
+
+    course_id = "99"
+    #exclude those that are NOT course_id 99 (AlgoDat)
+    new_line_by_user = {}
+    for username in line_by_user:
+        lines = line_by_user[username]
+        lines = [line for line in lines if line[1] == course_id]
+        new_line_by_user[username] = lines
+
+    total_entries = len(entries_data.split("\n"))
+
+    counts = _percent_count_by_user(new_line_by_user, total_entries)
+    #counts = _counts_by_user(new_line_by_user)
 
     return counts
 
