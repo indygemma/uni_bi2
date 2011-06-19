@@ -23,6 +23,7 @@ The source files are:
 """
 import os
 import sys
+from common import load_file
 
 def _lines_by_user(data, user_col):
     """
@@ -95,12 +96,6 @@ def percent_count(counts, username, total=None):
     if not total:
         total = sum(counts.values())
     return float(counts[username]) / float(total)
-
-def load_file(filename):
-    f = open(filename, "r")
-    data = f.read()
-    f.close()
-    return data
 
 def process_read_by_user():
     """

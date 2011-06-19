@@ -33,6 +33,20 @@ upParentID name x@(Object service path tag theText ttype attrMap attrTMap childr
           -- need the children of element <sub>
           newChildren = map (processSub name parentID) children
 
+upKurs name x@(Object service path tag theText ttype attrMap attrTMap children) =
+    Object service path tag theText ttype newMap attrTMap children
+    where newMap = Map.insert name result attrMap
+          result = case theText of
+                       Just x -> map (\idx -> x !! idx) [43,44]
+                       Nothing -> ""
+
+upSemester name x@(Object service path tag theText ttype attrMap attrTMap children) =
+    Object service path tag theText ttype newMap attrTMap children
+    where newMap = Map.insert name result attrMap
+          result = case theText of
+                       Just x -> map (\idx -> x !! idx) [48,49]
+                       Nothing -> ""
+
 -- | helper function that only processes "sub" elements, returns the original object
 --   otherwise.
 processSub :: String -> String -> Object -> Object
@@ -50,6 +64,16 @@ injectParentID name parentID x@(Object service path tag theText ttype attrMap at
 -- | upStringLength calculates the length
 
 -- | Select statements | --
+
+selectCourses objects = unique
+        $ extract [exService,
+                   exAttr "id",
+                   exAttr "kurs",
+                   exAttr "semester",
+                   exText]
+        $ update [upKurs "kurs",
+                  upSemester "semester"]
+        $ select and [hasTag "instance"] objects
 
 selectPersons objects = unique
         $ extract [exService,
@@ -145,14 +169,14 @@ selectCodeServiceUsersInForum objects = unique
 
 -- | Merge Statements | --
 
+mergeWithCourses otherSelect objects = leftJoin [0,1] (selectCourses objects) otherSelect []
+
 -- | CSV writing Functions | --
 
 allInstances objects filename = do
     writeFile filename
         $ to_csv "service,course_id,description\n"
-        $ unique
-        $ extract [exService, exAttr "id", exText]
-        $ select and [hasTag "instance"] objects
+        $ selectCourses objects
 
 allPersons objects filename = do
     writeFile filename
@@ -179,6 +203,11 @@ allCodeServiceInForum objects filename = do
         $ to_csv "course_id,username\n"
         $ selectCodeServiceUsersInForum objects
 
+allForumEntriesCourses objects filename = do
+    writeFile filename
+        $ to_csv "service,course_id,kurs,semester,description,user,name,nid,id,parent_id,date,subject_length,text_length\n"
+        $ mergeWithCourses (selectForumEntries objects) objects
+
 main = do
     objects <- selectFS and [inService "Forum"]
     allInstances              objects "forum_courses.csv"
@@ -188,3 +217,4 @@ main = do
     allForum99Entries         objects "forum_99_entries.csv"
     allCodeServiceInForum     objects "forum_unique_users.csv"
     comparePersonIds          objects "forum_compare_userids"
+    allForumEntriesCourses    objects "forum_entries_courses.csv"
