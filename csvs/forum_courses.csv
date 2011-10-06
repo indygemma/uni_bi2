@@ -1,0 +1,18 @@
+service,course_id,description
+Forum,100,01,00,http://www.pri.univie.ac.at:80/courses/KURS01/se00: forum
+Forum,102,05,00,http://www.pri.univie.ac.at:80/courses/KURS05/se00: Forum - Komm
+Forum,112,01,04,http://www.pri.univie.ac.at:80/courses/KURS01/se04: Forum
+Forum,113,02,04,http://www.pri.univie.ac.at:80/courses/KURS02/se04: Forum
+Forum,118,06,04,http://www.pri.univie.ac.at:80/courses/KURS06/se04: Forum
+Forum,119,07,04,http://www.pri.univie.ac.at:80/courses/KURS07/se04: Diskussionsforum
+Forum,126,08,04,http://www.pri.univie.ac.at:80/courses/KURS08/se04/group2: Forum
+Forum,127,09,04,http://www.pri.univie.ac.at:80/courses/KURS09/se04: Diskussionsforum
+Forum,25,01,01,http://www.pri.univie.ac.at:80/courses/KURS01/se01: Diskussionsforum
+Forum,26,02,01,http://www.pri.univie.ac.at:80/courses/KURS02/se01: Discussionsforum
+Forum,43,03,02,http://www.pri.univie.ac.at:80/courses/KURS03/se02: Forum
+Forum,58,01,02,http://www.pri.univie.ac.at:80/courses/KURS01/se02: forum
+Forum,71,01,03,http://www.pri.univie.ac.at:80/courses/KURS01/se03: Diskussionsforum
+Forum,73,02,03,http://www.pri.univie.ac.at:80/courses/KURS02/se03: Diskussionsforum
+Forum,90,04,/s,http://www.pri.univie.ac.at:80/courses/KURS04/ue/se00: Forum HCI
+Forum,94,03,00,http://www.pri.univie.ac.at:80/courses/KURS03/se00: Forum VIS
+Forum,99,00,00,http://www.pri.univie.ac.at:80/courses/KURS00/se00: Forum

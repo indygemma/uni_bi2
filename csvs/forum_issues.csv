@@ -1,0 +1,55 @@
+service,course_id,issue_id,what
+Forum,25,1,Allgemein
+Forum,25,2,Technische Fragen
+Forum,25,3,Fragen zu Übungsbeispielen
+Forum,50,1,Administration
+Forum,50,2,Any other matters 
+Forum,26,1,Allgemeine und organisatorische Fragen
+Forum,26,2,Fragen zu den Übungsblättern
+Forum,26,3,Fragen zu den Projektmeilensteinen
+Forum,102,1,Allgemein
+Forum,102,3,Fragen/Kommentare zu Fachbereich
+Forum,73,1,Allgemeine und organisatorische Fragen
+Forum,73,2,Fragen zu den Übungsblättern
+Forum,73,3,Fragen zu den Projektmeilensteinen
+Forum,73,4,Anmeldung zu einem Tutorium
+Forum,112,1,Allgemein
+Forum,112,2,Technische Fragen
+Forum,112,3,Fragen zu Übungsbeispielen
+Forum,126,1,Allgemeine Fragen zur LVA
+Forum,118,1,Allgemeine Fragen zur Übung
+Forum,118,2,Fragen zu LaTeX
+Forum,118,3,Fragen zu den Abgaben
+Forum,58,1,Allgemein
+Forum,58,2,Technische Fragen
+Forum,58,3,Fragen zu Übungsbeispielen
+Forum,90,1,Allgemein
+Forum,90,3,Fragen zu Übungsbeispielen
+Forum,90,4,Tools
+Forum,71,1,Allgemein
+Forum,71,2,Technische Fragen
+Forum,71,3,Fragen zu Übungsbeispielen
+Forum,119,1,Allgemein
+Forum,119,2,Technische Fragen
+Forum,119,3,Fragen zu Übungsbeispielen
+Forum,119,4,Vorlesung
+Forum,94,1,Organisatorisches 
+Forum,94,2,Fragen zu den Übungen
+Forum,113,1,Allgemeine und organisatorische Fragen
+Forum,113,2,Fragen zu den Übungsblättern
+Forum,113,3,Fragen zu den Projektmeilensteinen
+Forum,113,4,Anmeldung zum Tutorium am 3.12. (10-12 Uhr)
+Forum,100,1,Allgemein
+Forum,100,2,Technische Fragen
+Forum,100,3,Fragen zu Übungsbeispielen
+Forum,99,0,Organisatorisches
+Forum,99,1,Programmierung
+Forum,99,2,Projekt
+Forum,99,3,Vorlesung
+Forum,99,4,Diverses
+Forum,127,1,Allgemein
+Forum,127,2,Technische Fragen zur Abgabe des Berichts
+Forum,127,3,Fragen zum Inhalt des Berichts
+Forum,127,4,Sonstige Fragen
+Forum,43,1,Organisatorisches 
+Forum,43,3,Fragen zu den Übungen

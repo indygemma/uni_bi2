@@ -1,0 +1,21 @@
+service,course_id,kurs,semester,description
+Abgabe,0,01,01,http://www.pri.univie.ac.at:80/courses/KURS01/se01: Arbeitsplatz
+Abgabe,1,02,01,http://www.pri.univie.ac.at:80/courses/KURS02/se01: Personanabgabe: Übungsblätter
+Abgabe,10,02,03,http://www.pri.univie.ac.at:80/courses/KURS02/se03: Personenabgabe: Übungsprojekt
+Abgabe,11,01,00,http://www.pri.univie.ac.at:80/courses/KURS01/se00: arbeitsplatz
+Abgabe,12,04,00,http://www.pri.univie.ac.at:80/courses/KURS04/ue/se00: Bewertung HCI
+Abgabe,13,05,00,http://www.pri.univie.ac.at:80/courses/KURS05/se00: Abgabe - Komm1
+Abgabe,14,03,00,http://www.pri.univie.ac.at:80/courses/KURS03/se00: Abgabe VIS
+Abgabe,15,01,04,http://www.pri.univie.ac.at:80/courses/KURS01/se04: Arbeitsplatz
+Abgabe,16,02,04,http://www.pri.univie.ac.at:80/courses/KURS02/se04: Personenabgabe-Übungsblätter
+Abgabe,17,02,04,http://www.pri.univie.ac.at:80/courses/KURS02/se04: Personenabgabe-Übungsprojekt
+Abgabe,18,07,04,http://www.pri.univie.ac.at:80/courses/KURS07/se04: Personenabgabe
+Abgabe,2,02,01,http://www.pri.univie.ac.at:80/courses/KURS02/se01: Personenabgabe: Projekt
+Abgabe,20,08,04,http://www.pri.univie.ac.at:80/courses/KURS08/se04/group2: ePortfolios
+Abgabe,21,06,04,http://www.pri.univie.ac.at:80/courses/KURS06/se04: Abgabe
+Abgabe,22,08,04,http://www.pri.univie.ac.at:80/courses/KURS08/se04/group1: Portfolio
+Abgabe,28,08,04,http://www.pri.univie.ac.at:80/courses/KURS08/se04/group2: Portfolio
+Abgabe,4,03,02,http://www.pri.univie.ac.at:80/courses/KURS03/se02: Abgabetoll Vis
+Abgabe,5,01,02,http://www.pri.univie.ac.at:80/courses/KURS01/se02: Hausuebungen
+Abgabe,7,01,03,http://www.pri.univie.ac.at:80/courses/KURS01/se03: Arbeitsplatz
+Abgabe,9,02,03,http://www.pri.univie.ac.at:80/courses/KURS02/se03: Personenabgabe: Übungsblätter
