@@ -51,3 +51,29 @@ def _group_lines_by(lines, cols, callback=None):
 def is_valid_matrikel_nummer(n):
     return len(n) == 8 and n.startswith("a")
 
+def orderby(lines, col):
+    """
+    order the lines by the value indexed by col
+    """
+    ordered = [(line[col],line) for line in lines]
+    ordered.sort()
+    return [x[1] for x in ordered]
+
+def dropuntil(lines, filter_):
+    """
+    drop lines until the filter returns True
+    """
+    for i,line in enumerate(lines):
+        if filter_(line):
+            return lines[i:]
+    return []
+
+def collectuntil(lines, filter_):
+    """
+    collect lines until the filter returns True
+    """
+    for i,line in enumerate(lines):
+        if filter_(line):
+            return lines[:i]
+    return lines
+

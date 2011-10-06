@@ -115,7 +115,11 @@ def process_avg_score():
                              for line in by_result_id.values()]
             avg_score = average(result_scores)
             num_scores = len(by_result_id.keys())
-            quality_score = num_scores * avg_score
+            max_score = max(result_scores)
+            if max_score == 0:
+                quality_score = 0
+            else:
+                quality_score = float(sum(result_scores)) / float(max_score)
             result[username] = (quality_score, avg_score, num_scores)
         return result
     lines = load_lines("abgabe_assessment_results_courses.csv")
@@ -294,6 +298,7 @@ def process_all():
                    user.get("plus_count","0"),
                    user.get("quality_score","0"),
                    user.get("median_feedback_length","0"),
+                   user.get("read", "0"),
                    user.get("written_entries", "0"),
                    user.get("avg_subj_length", "0"),
                    user.get("median_text_length", "0")]

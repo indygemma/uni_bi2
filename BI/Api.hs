@@ -6,6 +6,7 @@ import BI.Common
 import BI.Directory
 import Data.Binary
 import Data.List
+import Data.Maybe
 import Control.Parallel.Strategies
 import Control.Parallel
 import Codec.Compression.GZip
@@ -51,9 +52,7 @@ inService service x = oService x == service
 inPath path x = isInfixOf path $ oPath x
 notInPath path x = not $ inPath path x
 
-attr cmp a v x = case Map.lookup a $ oAttributeMap x of
-    Just val -> cmp v val
-    Nothing  -> False
+attr cmp a v x = maybe False (cmp v) $ Map.lookup a $ oAttributeMap x
 
 attrEq a v x = attr (==) a v x
 attrGt a v x = attr (>)  a v x
@@ -69,11 +68,10 @@ isCustom  = hasTag "custom"
 
 unique x = map head $ (group . sort) x
 
-extractAttr []     x = []
-extractAttr (a:as) x = case Map.lookup a $ oAttributeMap x of
-    Just v  -> v : extractAttr as x
-    Nothing -> extractAttr as x
+extractAttr :: [String] -> Object -> [String]
+extractAttr xs x = concat $ mapM (\a -> maybeToList $ Map.lookup a $ oAttributeMap x) xs
 
+extractAttrs :: [String] -> [Object] -> [[String]]
 extractAttrs a xs = map (extractAttr a) xs
 
 -- | Either extract with specific functions, or if a string
@@ -87,16 +85,12 @@ exPath :: Object -> String
 exPath = oPath
 
 exText :: Object -> String
-exText obj = case oText obj of
-    Just x -> x
-    Nothing -> ""
+exText obj = maybe "" id $ oText obj
 
 exAttr :: String -> Object -> String
 exAttr a obj = exAttrDefault a "" obj
 
-exAttrDefault a defaultValue obj = case Map.lookup a $ oAttributeMap obj of
-    Just x -> x
-    Nothing -> defaultValue
+exAttrDefault a defaultValue obj = maybe defaultValue id $ Map.lookup a $ oAttributeMap obj
 
 performExtract :: [Object -> String] -> Object -> [String]
 performExtract xs obj = map (\f -> f obj ) xs
@@ -110,9 +104,7 @@ extract xs = map (performExtract xs)
 upLength :: String -> String -> Object -> Object
 upLength a1 a2 (Object service path tag theText ttype attrMap attrTMap children) =
     Object service path tag theText ttype updatedMap attrTMap children
-    where oldValue = case Map.lookup a1 attrMap of
-                       Just x -> x
-                       Nothing -> ""
+    where oldValue = maybe "" id $ Map.lookup a1 attrMap
           newValue = length oldValue
           updatedMap = Map.insert a2 (show newValue) attrMap
 
@@ -134,9 +126,7 @@ performPushDown key value (Object service path tag theText ttype attrMap attrTMa
 
 pushDown a1 a2 (Object service path tag theText ttype attrMap attrTMap children) =
     Object service path tag theText ttype attrMap attrTMap updatedChildren
-    where value = case Map.lookup a1 attrMap of
-                      Just v -> v
-                      Nothing -> ""
+    where value = maybe "" id $ Map.lookup a1 attrMap
           updatedChildren = map (performPushDown a2 value) children
 
 pullUp f attribute x@(Object service path tag theText ttype attrMap attrTMap children) =
@@ -220,9 +210,7 @@ mappifyCollect ids []     theMap = theMap
 mappifyCollect ids (x:xs) theMap =
     mappifyCollect ids xs newMap
     where key      = fetchIndices ids x
-          curValue = case Map.lookup key theMap of
-            Just v  -> v
-            Nothing -> []
+          curValue = maybe [] id $ Map.lookup key theMap
           newValue = fetchIndicesInv ids x : curValue
           newMap   = if sameKey key ids x then Map.insert key newValue theMap else theMap
 
@@ -263,9 +251,7 @@ buildListFromMap_ :: Map.Map Int ([String] -> String) -> ([String] -> String) ->
 buildListFromMap_ defaultMap f lmin lmax
     | lmin == lmax = []
     | otherwise    = result : buildListFromMap_ defaultMap f (lmin+1) lmax
-                     where result = case Map.lookup lmin defaultMap of
-                                        Just v  -> v
-                                        Nothing -> f
+                     where result = maybe f id $ Map.lookup lmin defaultMap
 
 {-Code,1,,person001,Conan der Barbar,conan.der.barbar@univie.ac.at-}
 {-Code,1,person001,,Conan der Barbar,conan.der.barbar@univie.ac.at,1,tutor-}
