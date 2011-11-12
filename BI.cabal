@@ -20,7 +20,9 @@ library
     exposed-modules: BI.Types,
                      BI.Binary,
                      BI.Api,
-                     BI.Common
+                     BI.Common,
+                     BI.Transformations,
+                     BI.Queries
     ghc-options:     -Wall -O2 -threaded
 
 executable biextract
