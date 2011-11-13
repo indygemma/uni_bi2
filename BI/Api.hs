@@ -238,6 +238,60 @@ leftJoinCollect ids (x:xs) defaultMap indexMap addedRowLength =
             newrow : leftJoinCollect ids xs defaultMap indexMap addedRowLength
     where key = fetchIndices ids x
 
+objLeftJoin :: [(Object -> String, Object -> String)]
+            -> [Object]
+            -> [Object]
+            -> [Object]
+objLeftJoin mapping t1 [] = t1
+objLeftJoin mapping t1 t2 = result
+    where result = concat $ map (objLeftJoinCollect t2) t1
+          -- do the two objects match anyway?
+          compare :: Object -> Object -> Bool
+          compare x y = all id $ map (\(f1,f2) -> (f1 x) == (f2 y)) mapping
+          -- merge down everything from y to x
+          update :: Object -> Object -> Object
+          update x@(Object service1 path1 tag1 theText1 ttype1 attrMap1 attrTMap1 children1)
+                 y@(Object service2 path2 tag2 theText2 ttype2 attrMap2 attrTMap2 children2) =
+                 Object service1 path1 tag1 theText1 ttype1 combinedMap combinedAttrMap children1
+                 where combinedMap     = Map.union attrMap1 attrMap2
+                       combinedAttrMap = Map.union attrTMap1 attrTMap2
+          -- merge the keys only from y to x, leave null as default values
+          {-updateKeys :: Object -> Object -> Object-}
+          {-updateKeys x y = x-}
+          objLeftJoinCollect :: [Object] -> Object -> [Object]
+          objLeftJoinCollect ys x = case filter (compare x) ys of
+            []    -> [x]
+            final -> map (update x) final
+
+createObject attrs =
+    Object "Code" "somePath" "a tag" (Just "Some text") (Just "int") (Map.fromList attrs) (Map.fromList []) []
+
+samplePersons = [
+    createObject [("P_id", "1"), ("LastName", "Hansen"),   ("FirstName", "Ola"), ("Address", "Timoteivn 10"), ("City", "Sandnes")],
+    createObject [("P_id", "2"), ("LastName", "Svendson"), ("FirstName", "Tove"), ("Address", "Borgvn 23"), ("City", "Sandnes")],
+    createObject [("P_id", "3"), ("LastName", "Pettersen"), ("FirstName", "Kari"), ("Address", "Storgt 20"), ("City", "Stavanger")]
+    ]
+
+sampleOrders = [
+    createObject [("O_Id","1"), ("OrderNo", "77895"),  ("P_Id", "3")],
+    createObject [("O_Id","2"), ("OrderNo", "44678"),  ("P_Id", "3")],
+    createObject [("O_Id","3"), ("OrderNo", "22456"),  ("P_Id", "1")],
+    createObject [("O_Id","4"), ("OrderNo", "24562"),  ("P_Id", "1")],
+    createObject [("O_Id","5"), ("OrderNo", "347641"), ("P_Id", "5")]
+    ]
+
+samplePersonsOrdersJoin = extract [
+        exAttr "P_id",
+        exAttr "LastName",
+        exAttr "FirstName",
+        exAttr "Address",
+        exAttr "City",
+        exAttr "P_Id",
+        exAttr "O_Id",
+        exAttr "OrderNo"
+    ] $
+    objLeftJoin [(exAttr "P_id", exAttr "P_Id")] samplePersons sampleOrders
+
 sampleMap :: Map.Map Int ([String] -> String)
 sampleMap = Map.fromList [(5, \key -> "student"),(3, \key -> "lol")]
 
