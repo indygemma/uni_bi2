@@ -180,8 +180,8 @@ selectUnittestResults objects = extract [exService,
 
 objUnittestResults objects =
         update [T.upCourseId "course_id",
-                  T.upGroupId  "group_id",
-                  T.upUnittestStates]
+                T.upGroupId  "group_id",
+                T.upUnittestStates]
         $ select and [hasTag "test", inPath "resUnit.xml"] objects
 
 -- | Merge Statements | --
@@ -252,7 +252,10 @@ selectForumEntries objects =
              exAttr "date",
              exAttr "subject_length",
              exAttr "text_length"]
-    $ update [
+    $ objForumEntries objects
+    
+objForumEntries objects =
+    update [
         upLength "subject" "subject_length",
         upLength "text" "text_length",
         pullUp (\o -> concat $ extract [exText] $ select and [hasTag "subject"] $ oChildren o) "subject",
@@ -273,18 +276,8 @@ selectForum99Entries objects =
              exAttr "id",
              exAttr "subject_length",
              exAttr "text_length"]
-    $ update [
-        upLength "subject" "subject_length",
-        upLength "text" "text_length",
-        pullUp (\o -> concat $ extract [exText] $ select and [hasTag "subject"] $ oChildren o) "subject",
-        pullUp (\o -> concat $ extract [exText] $ select and [hasTag "text"] $ oChildren o) "text",
-        T.upCourseId "course_id"]
-    $ select and [hasTag "entry"]
-    $ update [ T.upParentID "parent_id" ]
     $ select and [attrEq "course_id" "99"]
-    $ update [pushDown "nid" "nid",
-              T.upCourseId "course_id"]
-    $ select and [hasTag "entries"] objects
+    $ objForumEntries objects
 
 selectCodeServiceUsersInForum objects = unique
     $ extract [exAttr "course_id", exAttr "user"]

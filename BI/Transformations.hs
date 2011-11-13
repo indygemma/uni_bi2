@@ -83,4 +83,17 @@ injectParentID name parentID x@(Object service path tag theText ttype attrMap at
     where updatedMap = Map.insert name parentID attrMap
           updatedChildren = oChildren $ upParentID name x
 
+-- These are commonly used for transformations, especially for HEP
 
+-- | update an object by setting an attribute key with the specified value
+upAttr key value (Object service path tag theText ttype attrMap attrTMap children) =
+    Object service path tag theText ttype newMap attrTMap children
+    where newMap = Map.insert key value attrMap
+
+-- | update an object by copying attribute key value to another new key
+upAttrValue key valueKey (Object service path tag theText ttype attrMap attrTMap children) =
+    Object service path tag theText ttype newMap attrTMap children
+    where newMap = Map.insert key otherValue attrMap
+          otherValue = case Map.lookup valueKey attrMap of
+                         Just x -> x
+                         Nothing -> ""

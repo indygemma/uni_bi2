@@ -50,3 +50,7 @@ executable biabgabe
     main-is: BI/Bin/Abgabe.hs
     ghc-options:     -Wall -O2 -threaded
 
+executable bihep
+    main-is: BI/Bin/Hep.hs
+    ghc-options:    -Wall -O2 -threaded
+
