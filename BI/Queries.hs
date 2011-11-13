@@ -15,7 +15,10 @@ selectLecturers objects = unique
                    exAttr "group_id",
                    exAttr "id",
                    exTag]
-        $ select or [hasTag "lecturer", hasTag "tutor"]
+        $ objLecturers objects
+
+objLecturers objects =
+        select or [hasTag "lecturer", hasTag "tutor"]
         $ update [pushDown "id" "group_id",
                   pushDown "course_id" "course_id",
                   T.upCourseId "course_id"]
@@ -27,8 +30,11 @@ selectCourses objects = unique
                    exAttr "kurs",
                    exAttr "semester",
                    exText]
-        $ update [T.upKurs "kurs",
-                  T.upSemester "semester"]
+        $ objCourses objects
+
+objCourses objects =
+        update [T.upKurs "kurs",
+                T.upSemester "semester"]
         $ select and [hasTag "instance"] objects
 
 --
@@ -50,7 +56,10 @@ selectAssessmentPlus objects =
             exAttr "course_id",
             exAttr "user_id",
             exAttr "date"]
-        $ select and [hasTag "plus"]
+        $ objAssessmentPlus objects
+        
+objAssessmentPlus objects =
+        select and [hasTag "plus"]
         $ update [pushDown "id" "user_id",
                   pushDown "course_id" "course_id",
                   T.upCourseId "course_id"]
@@ -64,7 +73,10 @@ selectAssessmentResults objects =
             exAttr "user_id",
             exAttr "id",
             exText]
-        $ select and [hasTag "result"]
+        $ objAssessmentResults objects
+
+objAssessmentResults objects =
+        select and [hasTag "result"]
         $ update [pushDown "id" "user_id",
                   pushDown "course_id" "course_id",
                   T.upCourseId "course_id"]
@@ -79,9 +91,11 @@ selectFeedback objects =
         exAttr "subtask",
         exAttr "author",
         exAttr "comment_length"]
-    $ update [upLength "comment" "comment_length",
-              pullUp (\o -> concat
-                          $ extract [exText] [o]) "comment"]
+    $ objFeedback objects
+
+objFeedback objects =
+    update [upLength "comment" "comment_length",
+            pullUp (\o -> concat $ extract [exText] [o]) "comment"]
     $ select and [hasTag "comment"]
     $ update [pushDown "id" "user_id",
               pushDown "course_id" "course_id",
@@ -96,12 +110,6 @@ selectFeedback objects =
 -- 6th column's default value is student
 mergeAbgabePersonsLecturers objects = leftJoin [0..3] (selectPersons objects) (selectLecturers objects)
     [(6,\key -> if isPrefixOf "a" (key!!3) then "student" else "")]
-
--- initial lists [service,course_id,kurs,semester,description]
---               [service,course_id,user_id,plus_date]
--- keys are: [service,course_id]
--- final structure: [service,course_id,kurs,semester,description,user_id,plus_date]
-mergeCourseAssessmentPlus objects = leftJoin [0,1] (selectCourses objects) (selectAssessmentPlus objects) []
 
 -- initial lists [service,course_id,user_id,result_id,result_value]
 --               [service,course_id,user_id,plus_date]
@@ -168,7 +176,10 @@ selectUnittestResults objects = extract [exService,
                    exAttr "ERROR",
                    exAttr "INFO",
                    exAttr "TIMEOUT"]
-        $ update [T.upCourseId "course_id",
+        $ objUnittestResults objects
+
+objUnittestResults objects =
+        update [T.upCourseId "course_id",
                   T.upGroupId  "group_id",
                   T.upUnittestStates]
         $ select and [hasTag "test", inPath "resUnit.xml"] objects

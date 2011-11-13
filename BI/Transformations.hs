@@ -27,10 +27,11 @@ upKurs name x@(Object service path tag theText ttype attrMap attrTMap children) 
 upSemester name x@(Object service path tag theText ttype attrMap attrTMap children) =
     Object service path tag theText ttype newMap attrTMap children
     where newMap = Map.insert name result attrMap
+          lookup x = map (\idx -> x !! idx)
           result = case theText of
-                       Just x -> case map (\idx -> x !! idx) [48,49] of
-                                     "/s" -> map(\idx -> x !! idx) [51,52]
-                                     _ -> map (\idx -> x !! idx) [48,49]
+                       Just x -> case lookup x [48,49] of
+                                     "/s" -> lookup x [51,52] -- "/ue/se00" -> 00
+                                     _    -> lookup x [48,49] -- "/se00" -> 00
                        Nothing -> ""
 
 --

@@ -30,7 +30,7 @@ main = do
 
     writeFile "abgabe_assessment_pluses_courses.csv"
         $ to_csv "service,course_id,kurs,semester,description,user_id,plus_date\n"
-        $ Q.mergeCourseAssessmentPlus objects
+        $ Q.mergeWithCourses (Q.selectAssessmentPlus objects) objects
 
     writeFile "abgabe_assessment_results_courses.csv"
         $ to_csv "service,course_id,kurs,semester,description,user_id,result_id,result_value\n"
