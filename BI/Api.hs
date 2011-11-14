@@ -170,7 +170,7 @@ unsafeInterleaveMapIO f (x:xs) = unsafeInterleaveIO $ do
 unsafeInterleaveMapIO _ [] = return []
 
 selectFSService selectfs root output =
-    return . concat =<< unsafeInterleaveMapIO (parseFile selectfs) =<< getFilesWithExt root "raw"
+    return . concat =<< unsafeInterleaveMapIO (parseFile selectfs) =<< getFilesWithExt root ["raw"]
 
 to_csv header a = header ++ (unlines $ map (intercalate ",") a)
 

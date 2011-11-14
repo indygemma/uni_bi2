@@ -20,8 +20,9 @@ getRecursiveContents topdir = do
             else return [path]
     return (concat paths)
 
-getFilesWithExt :: FilePath -> String -> IO [FilePath]
-getFilesWithExt topdir ext = do
+getFilesWithExt :: FilePath -> [String] -> IO [FilePath]
+getFilesWithExt topdir exts = do
     paths <- getRecursiveContents topdir
-    return (filter (isSuffixOf ext) paths)
+    return (filter (\path -> any id $ suffixResults path) paths)
+    where suffixResults path = map (flip isSuffixOf path) exts
 

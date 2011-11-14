@@ -57,7 +57,7 @@ selectAssessmentPlus objects =
             exAttr "user_id",
             exAttr "date"]
         $ objAssessmentPlus objects
-        
+
 objAssessmentPlus objects =
         select and [hasTag "plus"]
         $ update [pushDown "id" "user_id",

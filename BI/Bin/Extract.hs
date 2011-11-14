@@ -106,12 +106,12 @@ doProcess service path
     | isSuffixOf ".pdf" path == True = do
         -- get the timestamp of the file, then create a Bogus Object with tag "pdf" for later selection
         result <- doProcessPDF service path
-        return (result)
+        return ([result])
     | otherwise = doNormalProcess service path
 
-extractGeneric root output = do
+extractGeneric root output fileExts = do
     let service = last $ splitPath root
-    paths <- getFilesWithExt root "xml"
+    paths <- getFilesWithExt root fileExts
     objects <- forM paths $ \path -> do
         let index = case findIndex (\x -> x == path) paths of
                     Just i  -> i
@@ -126,7 +126,8 @@ extractGeneric root output = do
     return (concat objects)
 
 main = do
-    results <- mapM (\x -> extractGeneric (fst x) (snd x)) paths
+    let exts = ["xml", "pdf"]
+    results <- mapM (\x -> extractGeneric (fst x) (snd x) exts) paths
     let results2 = results `using` parBuffer 4 rwhnf
     saveObjects (concat results2) "all_extracted.raw"
     print "done"
