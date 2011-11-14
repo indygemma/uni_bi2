@@ -11,10 +11,13 @@ import System.Posix.Files
 import System.Time
 
 -- TODO: write out extra information as JSON on a single line in final CSV
+-- TODO: write transformation for timestamps in all events
 -- TODO: write mapping of the defined process actions to the data here (are all events covered)
 -- TODO: write queries for registration events
 
 -- TODO: how to track if a person has uploaded? If possible don't do this, have to regenerate index
+--      --> similar to Extract.hs line 62+ where I extract the time for "container.h"
+--      --> have to track the modifed times of every file under data/Abgabe/{course_id}/Data/{matrikelnr}/{task_id}/{subtask_id}/*.pdf
 
 -- DONE: Refactor out the most common logic
 -- DONE: write csv files in the following format: matrikelnummer_courseid_semester.csv
