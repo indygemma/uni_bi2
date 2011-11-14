@@ -55,12 +55,28 @@ selectUnittestResults objects = extract [
             exAttr "matrikelnr",
             exAttr "kurs",
             exAttr "semester",
-            exAttr "event"
+            exAttr "event",
+            exAttr "extra"
         ]
-        {--- TODO: convert extra data to JSON and write out in single line-}
-        $ hepCourses
+        $ update [T.upJSON "extra" [
+            "matrikelnr",
+            "kurs",
+            "semester",
+            "event",
+            "course_id",
+            "group_id",
+            "timestamp",
+            "theme",
+            "SUCCESS",
+            "WARNING",
+            "FAILURE",
+            "ERROR",
+            "INFO",
+            "TIMEOUT"
+        ]]
         $ update [T.upAttr "event" "code unittest run",
                   T.upAttrValue "matrikelnr" "identifier"]
+        $ hepCourses
         $ mergeWithCourses Q.objUnittestResults objects
 
 -- Forum stuff
@@ -71,10 +87,20 @@ selectForumEntries objects = extract [
         exAttr "semester",
         exAttr "event"
     ]
-    {--- TODO: convert extra data to JSON and write out in single line-}
-    $ hepCourses
+    -- TODO: check all attributes that exist for these objects
+    $ update [T.upJSON "extra" [
+        "course_id",
+        "name",
+        "nid",
+        "id",
+        "parent_id",
+        "date",
+        "subject_length",
+        "text_length"
+    ]]
     $ update [T.upAttr "event" "forum entry",
               T.upAttrValue "matrikelnr" "user"]
+    $ hepCourses
     $ mergeWithCourses Q.objForumEntries objects
 
 -- Abgabe stuff
@@ -91,10 +117,16 @@ selectAssessmentResultsCourses objects = extract [
         exAttr "semester",
         exAttr "event"
     ]
-    {--- TODO: convert extra data to JSON and write out in single line-}
-    $ hepCourses
+    -- TODO: check all attributes that exist for these objects
+    $ update [T.upJSON "extra" [
+        "course_id",
+        "user_id",
+        "id",
+        "score" -- TODO: copy this from "exText". implement upAttrLookup
+    ]]
     $ update [T.upAttr "event" "assessment result",
               T.upAttrValue "matrikelnr" "user_id"]
+    $ hepCourses
     $ mergeWithCourses Q.objAssessmentResults objects
 
 selectAssessmentPlusCourses objects = extract [
@@ -103,6 +135,7 @@ selectAssessmentPlusCourses objects = extract [
         exAttr "semester",
         exAttr "event"
     ]
+    -- TODO: check all attributes that exist for these objects
     {--- TODO: convert extra data to JSON and write out in single line-}
     $ hepCourses
     $ update [T.upAttr "event" "plus",
@@ -115,6 +148,7 @@ selectFeedbackCourses objects = extract [
         exAttr "semester",
         exAttr "event"
     ]
+    -- TODO: check all attributes that exist for these objects
     {--- TODO: convert extra data to JSON and write out in single line-}
     $ hepCourses
     $ update [T.upAttr "event" "feedback",

@@ -16,7 +16,8 @@ library
                      parallel,
                      old-time,
                      unix,
-                     MissingH
+                     MissingH,
+                     json
     exposed-modules: BI.Types,
                      BI.Binary,
                      BI.Api,

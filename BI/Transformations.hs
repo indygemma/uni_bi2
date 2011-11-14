@@ -5,6 +5,7 @@ import BI.Types
 import Data.List
 import qualified Data.Map as Map
 import System.FilePath
+import qualified Text.JSON as JSON
 
 upPathIndex name idx (Object service path tag theText ttype attrMap attrTMap children) =
     -- do something with path and save that result in the dict
@@ -97,3 +98,11 @@ upAttrValue key valueKey (Object service path tag theText ttype attrMap attrTMap
           otherValue = case Map.lookup valueKey attrMap of
                          Just x -> x
                          Nothing -> ""
+
+-- | update an object by creating a new attribute with the supplied attribute keys as JSON-encoded object
+upJSON key keys x@(Object service path tag theText ttype attrMap attrTMap children) =
+    Object service path tag theText ttype newMap attrTMap children
+    where newMap = Map.insert key value attrMap
+          value  = JSON.encode $ JSON.toJSObject values
+          values = map (\key -> (key, exAttr key x)) keys
+
