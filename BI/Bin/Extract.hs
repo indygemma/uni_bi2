@@ -73,6 +73,22 @@ doProcessWithContainerTimestamp service path containerFile = do
     result <- processFile (genericParser service path defaultMap) path
     return (result)
 
+doProcessPDF service path = do
+    filestatus <- getFileStatus path
+    let timestamp = modificationTime filestatus
+    let defaultMap = Map.fromList [("timestamp", show timestamp)]
+    let result = Object {
+        oService          = service,
+        oPath             = path,
+        oTag              = "pdf",
+        oText             = Nothing,
+        oTextType         = Nothing,
+        oAttributeMap     = defaultMap,
+        oAttributeTypeMap = Map.fromList [],
+        oChildren         = []
+    }
+    return (result)
+
 doNormalProcess service path = do
     let defaultMap = Map.fromList []
     result <- processFile (genericParser service path defaultMap) path
@@ -87,6 +103,10 @@ doProcess service path
             result <- doProcessWithContainerTimestamp service path containerFile
             return (result)
             else doNormalProcess service path
+    | isSuffixOf ".pdf" path == True = do
+        -- get the timestamp of the file, then create a Bogus Object with tag "pdf" for later selection
+        result <- doProcessPDF service path
+        return (result)
     | otherwise = doNormalProcess service path
 
 extractGeneric root output = do

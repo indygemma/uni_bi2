@@ -11,12 +11,18 @@ upPathIndex name idx (Object service path tag theText ttype attrMap attrTMap chi
     -- do something with path and save that result in the dict
     (Object service path tag theText ttype newMap attrTMap children)
     where newMap  = Map.insert name result attrMap
-          newPath = splitDirectories $ path \\ "/home/conrad/Downloads/data/"
+          newPath = splitDirectories $ path \\ "/home/conrad/Downloads/data/" -- TODO: why is this path hard-coded?
           result  = newPath !! idx
 
 -- "Code/{ course_id }/Data/{ group_id }/..."
 upCourseId name obj = upPathIndex name 1 obj
 upGroupId  name obj = upPathIndex name 3 obj
+-- "Abgabe/10/Data/a0903586/1/1/xxxXXXxxxxXxx.pdf"
+-- "Abgabe/10/Data/{matrikelnr}/{task_id}/{subtask_id}/{filename}"
+upAbgabeMatrikelNr name obj = upPathIndex name 3 obj
+upAbgabeTaskId     name obj = upPathIndex name 4 obj
+upAbgabeSubTaskId  name obj = upPathIndex name 5 obj
+upAbgabeFilename   name obj = upPathIndex name 6 obj
 
 upKurs name x@(Object service path tag theText ttype attrMap attrTMap children) =
     Object service path tag theText ttype newMap attrTMap children

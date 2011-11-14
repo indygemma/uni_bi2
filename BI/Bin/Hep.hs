@@ -155,6 +155,21 @@ selectFeedbackCourses objects = extract [
               T.upAttrValue "matrikelnr" "user_id"]
     $ mergeWithCourses Q.objFeedback objects
 
+selectPDFFiles objects = extract [
+        oService,
+        exAttr "course_id",
+        exAttr "matrikelnr",
+        exAttr "task_id",
+        exAttr "subtask_id",
+        exAttr "filename"
+    ]
+    $ update [T.upCourseId         "course_id",
+              T.upAbgabeMatrikelNr "matrikelnr",
+              T.upAbgabeTaskId     "task_id",
+              T.upAbgabeSubTaskId  "subtask_id",
+              T.upAbgabeFilename   "filename"]
+    $ select and [hasTag "pdf", inPath ".pdf"] objects
+
 groupAll code_objects forum_objects abgabe_objects = grouped
     where forum           = selectForumEntries forum_objects
           code            = selectUnittestResults code_objects
