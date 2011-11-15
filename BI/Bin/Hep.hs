@@ -9,14 +9,14 @@ import qualified Data.Map as Map
 import System.FilePath
 import System.Posix.Files
 import System.Time
+import Text.Printf
 
+-- TODO: problem in timestamp conversion when digit < 10, without prepended 0 it will come up later after sort
 -- TODO: how to differentiate between exercise upload and milestone upload?
 -- TODO: have to track *.sql *.zip
--- TODO: post-step, remove first three columns
 -- TODO: write transformation for timestamps in all events
 -- TODO: write mapping of the defined process actions to the data here (are all events covered)
 -- TODO: write queries for registration events
--- TODO: change output to be {kurs}/{semester}/{matrikelnr}.csv
 
 -- DONE: Refactor out the most common logic
 -- DONE: write csv files in the following format: matrikelnummer_courseid_semester.csv
@@ -28,6 +28,8 @@ import System.Time
 -- DONE: how to track if a person has uploaded? If possible don't do this, have to regenerate index
 --      --> similar to Extract.hs line 62+ where I extract the time for "container.h"
 --      --> have to track the modifed times of every file under data/Abgabe/{course_id}/Data/{matrikelnr}/{task_id}/{subtask_id}/*.pdf
+-- DONE: post-step, remove first three columns
+-- DONE: change output to be {kurs}/{semester}/{matrikelnr}.csv
 
 -- selectCourses schema: [service, course_id, kurs, semester, description]
 -- selectCourses data: [["Abgabe", "10", "02", "04", "description"],...]
@@ -58,6 +60,7 @@ selectUnittestResults objects = extract [
             exAttr "matrikelnr",
             exAttr "kurs",
             exAttr "semester",
+            exAttr "iso_date",
             exAttr "event",
             exAttr "extra"
         ]
@@ -69,7 +72,7 @@ selectUnittestResults objects = extract [
             "course_id",
             "group_id",
             "timestamp",
-            "iso_datetime",
+            "iso_date", -- TODO: fix the type in Extract.hs where I wrote this field as iso_date
             "theme",
             "SUCCESS",
             "WARNING",
@@ -90,6 +93,7 @@ selectForumEntries objects = extract [
         exAttr "matrikelnr",
         exAttr "kurs",
         exAttr "semester",
+        exAttr "date", -- TODO: convert to iso_date!
         exAttr "event",
         exAttr "extra"
     ]
@@ -123,7 +127,9 @@ selectAssessmentResultsCourses objects = extract [
         exAttr "matrikelnr",
         exAttr "kurs",
         exAttr "semester",
-        exAttr "event"
+        exAttr "iso_datetime", -- TODO: implement iso_datetime for evaluations!
+        exAttr "event",
+        exAttr "extra"
     ]
     -- TODO: check all attributes that exist for these objects
     $ update [T.upJSON "extra" [
@@ -143,7 +149,9 @@ selectAssessmentPlusCourses objects = extract [
         exAttr "matrikelnr",
         exAttr "kurs",
         exAttr "semester",
-        exAttr "event"
+        exAttr "iso_datetime", -- TODO: implement iso_datetime for pluses!
+        exAttr "event",
+        exAttr "extra" -- TODO: implement "extra" for pluses
     ]
     -- TODO: check all attributes that exist for these objects
     {--- TODO: convert extra data to JSON and write out in single line-}
@@ -163,7 +171,9 @@ selectFeedbackCourses objects = extract [
         exAttr "matrikelnr",
         exAttr "kurs",
         exAttr "semester",
-        exAttr "event"
+        exAttr "iso_datetime", -- TODO: implement iso_datetime for feedback!
+        exAttr "event",
+        exAttr "extra" -- TODO: implement "extra" for feedback!
     ]
     -- TODO: check all attributes that exist for these objects
     {--- TODO: convert extra data to JSON and write out in single line-}
@@ -177,6 +187,7 @@ selectPDFFiles objects = extract [
         exAttr "matrikelnr",
         exAttr "kurs",
         exAttr "semester",
+        exAttr "iso_datetime",
         exAttr "event",
         exAttr "extra"
     ]
@@ -191,7 +202,7 @@ selectPDFFiles objects = extract [
         "subtask_id",
         "filename"
     ]]
-    $ update [T.upAttr "event" "Excercise upload"]
+    $ update [T.upAttr "event" "Excercise upload"] -- TODO: have to differentiate between exercise and milestone!
     $ hepCourses
     $ mergeWithCourses objects
     $ objPDFFiles objects
@@ -229,10 +240,14 @@ main = do
     mapM (\group -> do
         let row       = group !! 0
         -- setup pre_name matrikelnummer=0, kurs=1, semester=2
-        let pre_name  = intercalate "_" [row!!2, row!!1, row!!0]
-        let filename  = (intercalate "." [pre_name, "csv"])
-        let fullpath  = joinPath ["hep", filename]
-        let content   = to_csv "" group
+        let matrikelnr = row!!0
+        let kurs = row!!1
+        let semester = row!!2
+        let filename  = printf "%s.csv" matrikelnr
+        let fullpath  = joinPath ["hep", "KURS"++kurs, "se"++semester, filename]
+        -- TODO: have to create non-existent paths
+        -- NOTE: somehow there are duplicate entries? nub them
+        let content   = to_csv "" $ nub $ sort $ map (\row -> [row!!3,row!!4,row!!5]) group
         writeFile fullpath content
         return ()
         ) $ groupAll code_objects forum_objects abgabe_objects
