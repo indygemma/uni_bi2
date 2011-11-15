@@ -10,6 +10,9 @@ import System.FilePath
 import System.Posix.Files
 import System.Time
 
+-- TODO: how to differentiate between exercise upload and milestone upload?
+-- TODO: have to track *.sql *.zip
+-- TODO: post-step, remove first three columns
 -- TODO: write transformation for timestamps in all events
 -- TODO: write mapping of the defined process actions to the data here (are all events covered)
 -- TODO: write queries for registration events
@@ -66,6 +69,7 @@ selectUnittestResults objects = extract [
             "course_id",
             "group_id",
             "timestamp",
+            "iso_datetime",
             "theme",
             "SUCCESS",
             "WARNING",
@@ -152,7 +156,6 @@ selectAssessmentPlusCourses objects = extract [
     {-$ objLeftJoin [(exService, exService),-}
                    {-(exAttr "course_id", exAttr "course_id"),-}
                    {-(exAttr "matrikelnr", exAttr "user_id" ),-}
-
                    {-Q.objAssessmentPlus objects-}
 
 
@@ -183,6 +186,7 @@ selectPDFFiles objects = extract [
         "semester",
         "course_id",
         "timestamp",
+        "iso_datetime",
         "task_id",
         "subtask_id",
         "filename"
