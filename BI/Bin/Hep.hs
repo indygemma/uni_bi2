@@ -86,7 +86,8 @@ selectForumEntries objects = extract [
         exAttr "matrikelnr",
         exAttr "kurs",
         exAttr "semester",
-        exAttr "event"
+        exAttr "event",
+        exAttr "extra"
     ]
     -- TODO: check all attributes that exist for these objects
     $ update [T.upJSON "extra" [
@@ -103,7 +104,7 @@ selectForumEntries objects = extract [
     $ update [T.upAttr "event" "forum entry",
               T.upAttrValue "matrikelnr" "user"]
     $ hepCourses
-    {-$ mergeWithCourses objects-}
+    $ mergeWithCourses objects
     $ Q.objForumEntries objects
 
 -- Abgabe stuff
@@ -125,9 +126,9 @@ selectAssessmentResultsCourses objects = extract [
         "course_id",
         "user_id",
         "id",
-        "score" -- TODO: copy this from "exText". implement upAttrLookup
+        "score"
     ]]
-    $ update [T.upAttr "event" "assessment result",
+    $ update [T.upAttr "event" "Evaluation",
               T.upAttrValue "matrikelnr" "user_id",
               T.upAttrLookup "score" exText]
     $ hepCourses
@@ -186,8 +187,8 @@ selectPDFFiles objects = extract [
         "subtask_id",
         "filename"
     ]]
-    $ hepCourses
     $ update [T.upAttr "event" "Excercise upload"]
+    $ hepCourses
     $ mergeWithCourses objects
     $ objPDFFiles objects
 

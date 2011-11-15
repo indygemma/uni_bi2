@@ -6,6 +6,8 @@ import Data.List
 import qualified Data.Map as Map
 import System.FilePath
 import qualified Text.JSON as JSON
+import System.Time
+import System.Time.Utils
 
 upPathIndex name idx (Object service path tag theText ttype attrMap attrTMap children) =
     -- do something with path and save that result in the dict
@@ -118,3 +120,9 @@ upJSON key keys x@(Object service path tag theText ttype attrMap attrTMap childr
           value  = JSON.encode $ JSON.toJSObject values
           values = map (\key -> (key, exAttr key x)) keys
 
+-- | convert an attribute field with timestamp as ISO Date and store it under a new key
+upISODateTimeFromTimestamp iso_key timestamp_key x@(Object service path tag theText ttype attrMap attrTMap children) = do
+    ct <- toCalendarTime $ epochToClockTime $ read $ exAttr timestamp_key x
+    let value = (show $ ctYear ct) ++ "-" ++ (show $ ctMonth ct) ++ "-" ++ (show $ ctDay ct) ++ "T00:00:00+0:00"
+    let newMap = Map.insert iso_key value attrMap
+    return (Object service path tag theText ttype newMap attrTMap children)

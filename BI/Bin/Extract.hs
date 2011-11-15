@@ -17,6 +17,7 @@ import Control.Parallel.Strategies
 import Control.Parallel
 import Data.List
 import qualified Data.Map as Map
+import Text.Printf
 
 handler e = print e
 
@@ -59,11 +60,37 @@ main2 = do
     saveObjects (concat objects) "extract.raw"
     where paths = buildPaths "/home/conrad/Downloads/data/" ["Register", "Forum", "Code", "Abgabe"]
 
+monthToInt :: Month -> Int
+monthToInt month = case month of
+    January   -> 1
+    February  -> 2
+    March     -> 3
+    April     -> 4
+    May       -> 5
+    June      -> 6
+    July      -> 7
+    August    -> 8
+    September -> 9
+    October   -> 10
+    November  -> 11
+    December  -> 12
+
+clockTimeToISO :: CalendarTime -> String
+clockTimeToISO ct = printf "%d-%d-%dT%d:%d:%d+00:00" year month day h m s
+    where year  = ctYear ct
+          month = monthToInt $ ctMonth ct
+          day   = ctDay ct
+          h     = ctHour ct
+          m     = ctMin ct
+          s     = ctSec ct
+
 doProcessWithContainerTimestamp service path containerFile = do
-    filestatus <- getFileStatus containerFile
-    let timestamp = modificationTime filestatus
-    ct         <- toCalendarTime $ epochToClockTime $ timestamp 
+    filestatus     <- getFileStatus containerFile
+    let timestamp  = modificationTime filestatus
+    ct             <- toCalendarTime $ epochToClockTime $ timestamp
+    let datetime   = clockTimeToISO ct
     let defaultMap = Map.fromList [("timestamp", show timestamp),
+                                   ("iso_date",  clockTimeToISO ct),
                                    ("year",      show $ ctYear ct),
                                    ("month",     show $ ctMonth ct),
                                    ("day",       show $ ctDay ct),
@@ -76,7 +103,8 @@ doProcessWithContainerTimestamp service path containerFile = do
 doProcessPDF service path = do
     filestatus <- getFileStatus path
     let timestamp = modificationTime filestatus
-    let defaultMap = Map.fromList [("timestamp", show timestamp)]
+    ct <- toCalendarTime $ epochToClockTime $ timestamp
+    let defaultMap = Map.fromList [("timestamp", show timestamp), ("iso_datetime", clockTimeToISO ct)]
     let result = Object {
         oService          = service,
         oPath             = path,
