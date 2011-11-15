@@ -105,6 +105,12 @@ upAttrValue key valueKey (Object service path tag theText ttype attrMap attrTMap
                          Just x -> x
                          Nothing -> ""
 
+-- | update an object by copying the value looked up via 'op' under a new key
+upAttrLookup key op x@(Object service path tag theText ttype attrMap attrTMap children) =
+    Object service path tag theText ttype newMap attrTMap children
+    where newMap = Map.insert key otherValue attrMap
+          otherValue = op x
+
 -- | update an object by creating a new attribute with the supplied attribute keys as JSON-encoded object
 upJSON key keys x@(Object service path tag theText ttype attrMap attrTMap children) =
     Object service path tag theText ttype newMap attrTMap children

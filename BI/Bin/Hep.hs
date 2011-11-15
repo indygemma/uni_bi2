@@ -10,14 +10,10 @@ import System.FilePath
 import System.Posix.Files
 import System.Time
 
--- TODO: write out extra information as JSON on a single line in final CSV
 -- TODO: write transformation for timestamps in all events
 -- TODO: write mapping of the defined process actions to the data here (are all events covered)
 -- TODO: write queries for registration events
-
--- TODO: how to track if a person has uploaded? If possible don't do this, have to regenerate index
---      --> similar to Extract.hs line 62+ where I extract the time for "container.h"
---      --> have to track the modifed times of every file under data/Abgabe/{course_id}/Data/{matrikelnr}/{task_id}/{subtask_id}/*.pdf
+-- TODO: change output to be {kurs}/{semester}/{matrikelnr}.csv
 
 -- DONE: Refactor out the most common logic
 -- DONE: write csv files in the following format: matrikelnummer_courseid_semester.csv
@@ -25,10 +21,14 @@ import System.Time
 --       --> Need Update function to extract current semester.
 -- DONE: find out where to commonly extract semester
 -- DONE: filter out hep-specific courses only
+-- DONE: write out extra information as JSON on a single line in final CSV
+-- DONE: how to track if a person has uploaded? If possible don't do this, have to regenerate index
+--      --> similar to Extract.hs line 62+ where I extract the time for "container.h"
+--      --> have to track the modifed times of every file under data/Abgabe/{course_id}/Data/{matrikelnr}/{task_id}/{subtask_id}/*.pdf
 
 -- selectCourses schema: [service, course_id, kurs, semester, description]
 -- selectCourses data: [["Abgabe", "10", "02", "04", "description"],...]
--- selectUnitestResults schema: [service, course_id, group_id, identifier, theme, timestamp, year, month, day, 
+-- selectUnitestResults schema: [service, course_id, group_id, identifier, theme, timestamp, year, month, day,
 -- selectAssessmentPlus schema: [service, course_id, user_id, date]
 -- selectAssessmentResults schema: [service, course_id, user_id, id, text]
 -- selectFeedback schema: [service, course_id, user_id, task, subtask, author, comment_length]
@@ -39,7 +39,7 @@ isKursSemester kurs semester obj =
          exAttr "kurs"     obj == kurs]
 
 filterKursSemester :: [(String,String)] -> [Object] -> [Object]
-filterKursSemester xs = filter (\x -> 
+filterKursSemester xs = filter (\x ->
     any id $ map (\(kurs,semester) ->
     isKursSemester kurs semester x) xs)
 
@@ -48,7 +48,7 @@ hepCourses = filterKursSemester [
         ("02", "04"), -- DBS
         ("00", "00") -- AlgoDat
     ]
-    
+
 -- Code Stuff
 
 selectUnittestResults objects = extract [
@@ -77,7 +77,8 @@ selectUnittestResults objects = extract [
         $ update [T.upAttr "event" "code unittest run",
                   T.upAttrValue "matrikelnr" "identifier"]
         $ hepCourses
-        $ mergeWithCourses Q.objUnittestResults objects
+        $ mergeWithCourses objects
+        $ Q.objUnittestResults objects
 
 -- Forum stuff
 
@@ -95,21 +96,23 @@ selectForumEntries objects = extract [
         "id",
         "parent_id",
         "date",
+        "subject",
         "subject_length",
         "text_length"
     ]]
     $ update [T.upAttr "event" "forum entry",
               T.upAttrValue "matrikelnr" "user"]
     $ hepCourses
-    $ mergeWithCourses Q.objForumEntries objects
+    {-$ mergeWithCourses objects-}
+    $ Q.objForumEntries objects
 
 -- Abgabe stuff
 
-mergeWithCourses otherObjects objects =
+mergeWithCourses objects otherObjects =
     objLeftJoin [(exService, exService),
                  (exAttr "id", exAttr "course_id")] -- "id" in course data, "course_id" in others
                 (Q.objCourses objects)
-                (otherObjects objects)
+                otherObjects
 
 selectAssessmentResultsCourses objects = extract [
         exAttr "matrikelnr",
@@ -125,9 +128,11 @@ selectAssessmentResultsCourses objects = extract [
         "score" -- TODO: copy this from "exText". implement upAttrLookup
     ]]
     $ update [T.upAttr "event" "assessment result",
-              T.upAttrValue "matrikelnr" "user_id"]
+              T.upAttrValue "matrikelnr" "user_id",
+              T.upAttrLookup "score" exText]
     $ hepCourses
-    $ mergeWithCourses Q.objAssessmentResults objects
+    $ mergeWithCourses objects
+    $ Q.objAssessmentResults objects
 
 selectAssessmentPlusCourses objects = extract [
         exAttr "matrikelnr",
@@ -140,7 +145,15 @@ selectAssessmentPlusCourses objects = extract [
     $ hepCourses
     $ update [T.upAttr "event" "plus",
               T.upAttrValue "matrikelnr" "user_id"]
-    $ mergeWithCourses Q.objAssessmentPlus objects
+    $ mergeWithCourses objects
+    $ Q.objAssessmentPlus objects
+    -- left:pdf right:assessment
+    {-$ objLeftJoin [(exService, exService),-}
+                   {-(exAttr "course_id", exAttr "course_id"),-}
+                   {-(exAttr "matrikelnr", exAttr "user_id" ),-}
+
+                   {-Q.objAssessmentPlus objects-}
+
 
 selectFeedbackCourses objects = extract [
         exAttr "matrikelnr",
@@ -153,21 +166,37 @@ selectFeedbackCourses objects = extract [
     $ hepCourses
     $ update [T.upAttr "event" "feedback",
               T.upAttrValue "matrikelnr" "user_id"]
-    $ mergeWithCourses Q.objFeedback objects
+    $ mergeWithCourses objects
+    $ Q.objFeedback objects
 
 selectPDFFiles objects = extract [
-        oService,
-        exAttr "course_id",
         exAttr "matrikelnr",
-        exAttr "task_id",
-        exAttr "subtask_id",
-        exAttr "filename"
+        exAttr "kurs",
+        exAttr "semester",
+        exAttr "event",
+        exAttr "extra"
     ]
-    $ update [T.upCourseId         "course_id",
-              T.upAbgabeMatrikelNr "matrikelnr",
-              T.upAbgabeTaskId     "task_id",
-              T.upAbgabeSubTaskId  "subtask_id",
-              T.upAbgabeFilename   "filename"]
+    $ update [T.upJSON "extra" [
+        "matrikelnr",
+        "kurs",
+        "semester",
+        "course_id",
+        "timestamp",
+        "task_id",
+        "subtask_id",
+        "filename"
+    ]]
+    $ hepCourses
+    $ update [T.upAttr "event" "Excercise upload"]
+    $ mergeWithCourses objects
+    $ objPDFFiles objects
+
+objPDFFiles objects =
+    update [T.upCourseId         "course_id" ,
+            T.upAbgabeMatrikelNr "matrikelnr",
+            T.upAbgabeTaskId     "task_id"   ,
+            T.upAbgabeSubTaskId  "subtask_id",
+            T.upAbgabeFilename   "filename"  ]
     $ select and [hasTag "pdf", inPath ".pdf"] objects
 
 groupAll code_objects forum_objects abgabe_objects = grouped
@@ -176,9 +205,10 @@ groupAll code_objects forum_objects abgabe_objects = grouped
           abgabe_pluses   = selectAssessmentPlusCourses abgabe_objects
           abgabe_results  = selectAssessmentResultsCourses abgabe_objects
           abgabe_feedback = selectFeedbackCourses abgabe_objects
+          abgabe_uploads  = selectPDFFiles abgabe_objects
           {-combined     = forum ++ code ++ abgabe_results-}
           {-combined     =  concat [forum,code,abgabe_pluses,abgabe_results,abgabe_results]-}
-          combined     =  concat [forum,code,abgabe_pluses,abgabe_results,abgabe_feedback]
+          combined     =  concat [forum,code,abgabe_pluses,abgabe_results,abgabe_feedback, abgabe_uploads]
           validStudentsOnly = filter (\x -> all id [isPrefixOf "a" (x!!0),
                                                    length (x!!0) == length "a0607688"])
           fields x y   = all id [(x!!0) == (y!!0),
