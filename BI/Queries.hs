@@ -79,7 +79,8 @@ objAssessmentResults objects =
         select and [hasTag "result"]
         $ update [pushDown "id" "user_id",
                   pushDown "course_id" "course_id",
-                  T.upCourseId "course_id"]
+                  T.upCourseId "course_id",
+                  T.upAttrLookup "score" exText]
         $ select and [hasTag "person", inPath "assessments.xml"] objects
 
 selectFeedback objects =

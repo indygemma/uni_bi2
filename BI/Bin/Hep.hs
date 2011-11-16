@@ -139,8 +139,7 @@ selectAssessmentResultsCourses objects = extract [
         "score"
     ]]
     $ update [T.upAttr "event" "Evaluation",
-              T.upAttrValue "matrikelnr" "user_id",
-              T.upAttrLookup "score" exText]
+              T.upAttrValue "matrikelnr" "user_id"]
     $ hepCourses
     $ mergeWithCourses objects
     $ Q.objAssessmentResults objects
