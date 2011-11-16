@@ -75,14 +75,20 @@ monthToInt month = case month of
     November  -> 11
     December  -> 12
 
+prepend0 :: Int -> String
+prepend0 num = doPrepend converted
+    where converted = show num
+          doPrepend x | length(x) == 1 = "0"++x
+                      | otherwise      = x
+
 clockTimeToISO :: CalendarTime -> String
-clockTimeToISO ct = printf "%d-%d-%dT%d:%d:%d+00:00" year month day h m s
+clockTimeToISO ct = printf "%d-%s-%sT%s:%s:%s+00:00" year month day h m s
     where year  = ctYear ct
-          month = monthToInt $ ctMonth ct
-          day   = ctDay ct
-          h     = ctHour ct
-          m     = ctMin ct
-          s     = ctSec ct
+          month = prepend0 $ monthToInt $ ctMonth ct
+          day   = prepend0 $ ctDay ct
+          h     = prepend0 $ ctHour ct
+          m     = prepend0 $ ctMin ct
+          s     = prepend0 $ ctSec ct
 
 doProcessWithContainerTimestamp service path containerFile = do
     filestatus     <- getFileStatus containerFile
