@@ -95,14 +95,14 @@ doProcessWithContainerTimestamp service path containerFile = do
     let timestamp  = modificationTime filestatus
     ct             <- toCalendarTime $ epochToClockTime $ timestamp
     let datetime   = clockTimeToISO ct
-    let defaultMap = Map.fromList [("timestamp", show timestamp),
-                                   ("iso_date",  clockTimeToISO ct),
-                                   ("year",      show $ ctYear ct),
-                                   ("month",     show $ ctMonth ct),
-                                   ("day",       show $ ctDay ct),
-                                   ("hour",      show $ ctHour ct),
-                                   ("min",       show $ ctMin ct),
-                                   ("sec",       show $ ctSec ct)]
+    let defaultMap = Map.fromList [("timestamp",     show timestamp),
+                                   ("iso_datetime",  clockTimeToISO ct),
+                                   ("year",          show $ ctYear ct),
+                                   ("month",         show $ ctMonth ct),
+                                   ("day",           show $ ctDay ct),
+                                   ("hour",          show $ ctHour ct),
+                                   ("min",           show $ ctMin ct),
+                                   ("sec",           show $ ctSec ct)]
     result <- processFile (genericParser service path defaultMap) path
     return (result)
 

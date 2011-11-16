@@ -60,7 +60,7 @@ selectUnittestResults objects = extract [
             exAttr "matrikelnr",
             exAttr "kurs",
             exAttr "semester",
-            exAttr "iso_date",
+            exAttr "iso_datetime",
             exAttr "event",
             exAttr "extra"
         ]
@@ -69,10 +69,11 @@ selectUnittestResults objects = extract [
             "kurs",
             "semester",
             "event",
+            "service",
             "course_id",
             "group_id",
             "timestamp",
-            "iso_date", -- TODO: fix the type in Extract.hs where I wrote this field as iso_date
+            "iso_datetime",
             "theme",
             "SUCCESS",
             "WARNING",
@@ -93,7 +94,7 @@ selectForumEntries objects = extract [
         exAttr "matrikelnr",
         exAttr "kurs",
         exAttr "semester",
-        exAttr "date", -- TODO: convert to iso_date!
+        exAttr "date", -- TODO: convert to iso_datetime!
         exAttr "event",
         exAttr "extra"
     ]
@@ -201,7 +202,7 @@ selectPDFFiles objects = extract [
         "subtask_id",
         "filename"
     ]]
-    $ update [T.upAttr "event" "Excercise upload"] -- TODO: have to differentiate between exercise and milestone!
+    $ update [T.upAttr "event" "Exercise upload"] -- TODO: have to differentiate between exercise and milestone!
     $ hepCourses
     $ mergeWithCourses objects
     $ objPDFFiles objects
@@ -211,7 +212,8 @@ objPDFFiles objects =
             T.upAbgabeMatrikelNr "matrikelnr",
             T.upAbgabeTaskId     "task_id"   ,
             T.upAbgabeSubTaskId  "subtask_id",
-            T.upAbgabeFilename   "filename"  ]
+            T.upAbgabeFilename   "filename"  ,
+            T.upAttrLookup       "service" exService]
     $ select and [hasTag "pdf", inPath ".pdf"] objects
 
 groupAll code_objects forum_objects abgabe_objects = grouped

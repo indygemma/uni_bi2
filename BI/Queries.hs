@@ -62,7 +62,8 @@ objAssessmentPlus objects =
         select and [hasTag "plus"]
         $ update [pushDown "id" "user_id",
                   pushDown "course_id" "course_id",
-                  T.upCourseId "course_id"]
+                  T.upCourseId "course_id",
+                  T.upAttrLookup "service" exService]
         $ select and [hasTag "person", inPath "assessments.xml"] objects
 
 selectAssessmentResults objects =
@@ -80,7 +81,8 @@ objAssessmentResults objects =
         $ update [pushDown "id" "user_id",
                   pushDown "course_id" "course_id",
                   T.upCourseId "course_id",
-                  T.upAttrLookup "score" exText]
+                  T.upAttrLookup "score" exText,
+                  T.upAttrLookup "service" exService]
         $ select and [hasTag "person", inPath "assessments.xml"] objects
 
 selectFeedback objects =
@@ -100,7 +102,8 @@ objFeedback objects =
     $ select and [hasTag "comment"]
     $ update [pushDown "id" "user_id",
               pushDown "course_id" "course_id",
-              T.upCourseId "course_id"]
+              T.upCourseId "course_id",
+              T.upAttrLookup "service" exService]
     $ select and [hasTag "person", inPath "feedback.xml"] objects
 
 -- initial lists [service,course_id,group_id,person_id,name,email]
@@ -182,7 +185,8 @@ selectUnittestResults objects = extract [exService,
 objUnittestResults objects =
         update [T.upCourseId "course_id",
                 T.upGroupId  "group_id",
-                T.upUnittestStates]
+                T.upUnittestStates,
+                T.upAttrLookup "service" exService]
         $ select and [hasTag "test", inPath "resUnit.xml"] objects
 
 -- | Merge Statements | --
@@ -261,7 +265,8 @@ objForumEntries objects =
         upLength "text" "text_length",
         pullUp (\o -> concat $ extract [exText] $ select and [hasTag "subject"] $ oChildren o) "subject",
         pullUp (\o -> concat $ extract [exText] $ select and [hasTag "text"] $ oChildren o) "text",
-        T.upCourseId "course_id"]
+        T.upCourseId "course_id",
+        T.upAttrLookup "service" exService]
     $ select and [hasTag "entry"]
     $ update [ T.upParentID "parent_id" ]
     $ liftChildren and [hasTag "entry"]
