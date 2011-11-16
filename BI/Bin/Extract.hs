@@ -106,7 +106,8 @@ doProcessWithContainerTimestamp service path containerFile = do
     result <- processFile (genericParser service path defaultMap) path
     return (result)
 
-doProcessPDF service path = do
+doProcessFile :: String -> String -> String -> IO Object
+doProcessFile filetype service path = do
     filestatus <- getFileStatus path
     let timestamp = modificationTime filestatus
     ct <- toCalendarTime $ epochToClockTime $ timestamp
@@ -114,7 +115,7 @@ doProcessPDF service path = do
     let result = Object {
         oService          = service,
         oPath             = path,
-        oTag              = "pdf",
+        oTag              = filetype,
         oText             = Nothing,
         oTextType         = Nothing,
         oAttributeMap     = defaultMap,
@@ -137,11 +138,12 @@ doProcess service path
             result <- doProcessWithContainerTimestamp service path containerFile
             return (result)
             else doNormalProcess service path
-    | isSuffixOf ".pdf" path == True = do
-        -- get the timestamp of the file, then create a Bogus Object with tag "pdf" for later selection
-        result <- doProcessPDF service path
+    | isSuffixOf ".xml" path == True = doNormalProcess service path
+    | otherwise = do
+        -- get the timestamp of the file, then create a Bogus Object with tag "{filetype}" for later selection
+        let filetype = tail $ takeExtension path
+        result <- doProcessFile filetype service path
         return ([result])
-    | otherwise = doNormalProcess service path
 
 extractGeneric root output fileExts = do
     let service = last $ splitPath root
@@ -160,7 +162,7 @@ extractGeneric root output fileExts = do
     return (concat objects)
 
 main = do
-    let exts = ["xml", "pdf"]
+    let exts = ["xml", "pdf", "zip", "sql"]
     results <- mapM (\x -> extractGeneric (fst x) (snd x) exts) paths
     let results2 = results `using` parBuffer 4 rwhnf
     saveObjects (concat results2) "all_extracted.raw"

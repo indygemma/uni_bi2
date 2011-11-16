@@ -30,10 +30,6 @@ executable biextract
     main-is: BI/Bin/Extract.hs
     ghc-options:     -Wall -O2 -threaded
 
-executable bitransform
-    main-is: BI/Bin/Transform.hs
-    ghc-options:     -Wall -O2 -threaded
-
 executable ppxml
     main-is:       BI/Bin/ppxml.hs
     build-depends: haskell98
