@@ -11,11 +11,11 @@ import System.Posix.Files
 import System.Time
 import Text.Printf
 
+-- TODO: modify the csv structure: timestamp, instance, user_id, user type, event, extra
+-- TODO: modify activity label according to new PDF
 -- TODO: how to differentiate between exercise upload and milestone upload?
--- TODO: have to track *.sql *.zip, generalize pdf tracking + object creation (in this case the xml processing is a special case)
 -- TODO: write transformation for timestamps in all events. left: forum date (have to append Timezone)
 -- TODO: write mapping of the defined process actions to the data here (are all events covered)
--- TODO: write queries for registration events
 
 -- DONE: Refactor out the most common logic
 -- DONE: write csv files in the following format: matrikelnummer_courseid_semester.csv
@@ -31,6 +31,9 @@ import Text.Printf
 -- DONE: change output to be {kurs}/{semester}/{matrikelnr}.csv
 -- DONE: problem in timestamp conversion when digit < 10, without prepended 0 it will come up later after sort
 -- DONE: "score" in assessment is referencing the wrong thing, why? maybe after join the exText is different?
+-- DONE: have to track *.sql *.zip, generalize pdf tracking + object creation (in this case the xml processing is a special case)
+-- DONE: write queries for registration events
+-- DONE: write out a version where all the data is stored in one place
 
 -- selectCourses schema: [service, course_id, kurs, semester, description]
 -- selectCourses data: [["Abgabe", "10", "02", "04", "description"],...]
@@ -55,10 +58,7 @@ hepCourses = filterKursSemester [
         ("00", "00") -- AlgoDat
     ]
 
--- Register Stuff
--- TODO: there's no specific time when a student enrolled, just use begin-reg
--- 2011-01-22T18:23:14;Registration/20;Enroll;{"slot": 11, "unit":, "time": "11:30-11:45"}
-selectRegistrations objects = extract [
+extractHEPStudentGroup = extract [
         exAttr "matrikelnr",
         exAttr "kurs",
         exAttr "semester",
@@ -66,7 +66,21 @@ selectRegistrations objects = extract [
         exAttr "event",
         exAttr "extra"
     ]
-    $ update [
+
+extractHEPCSGroup = extract [
+        exAttr "kurs",
+        exAttr "semester",
+        exAttr "matrikelnr",
+        exAttr "iso_datetime",
+        exAttr "event",
+        exAttr "extra"
+    ]
+
+-- Register Stuff
+-- TODO: there's no specific time when a student enrolled, just use begin-reg
+-- 2011-01-22T18:23:14;Registration/20;Enroll;{"slot": 11, "unit":, "time": "11:30-11:45"}
+selectRegistrations objects =
+    update [
         T.upAttrValue "iso_datetime" "begin-reg",
         T.upAttr "event" "Enrollment",
         T.upJSON "extra" [
@@ -171,15 +185,8 @@ objRegistrationsForStudents objects =
 
 -- Code Stuff
 
-selectUnittestResults objects = extract [
-            exAttr "matrikelnr",
-            exAttr "kurs",
-            exAttr "semester",
-            exAttr "iso_datetime",
-            exAttr "event",
-            exAttr "extra"
-        ]
-        $ update [T.upJSON "extra" [
+selectUnittestResults objects =
+        update [T.upJSON "extra" [
             "matrikelnr",
             "kurs",
             "semester",
@@ -205,16 +212,10 @@ selectUnittestResults objects = extract [
 
 -- Forum stuff
 
-selectForumEntries objects = extract [
-        exAttr "matrikelnr",
-        exAttr "kurs",
-        exAttr "semester",
-        exAttr "date", -- TODO: convert to iso_datetime!
-        exAttr "event",
-        exAttr "extra"
-    ]
+selectForumEntries objects =
+    -- TODO: convert to iso_datetime!
     -- TODO: check all attributes that exist for these objects
-    $ update [T.upJSON "extra" [
+    update [T.upJSON "extra" [
         "course_id",
         "name",
         "nid",
@@ -226,7 +227,8 @@ selectForumEntries objects = extract [
         "text_length"
     ]]
     $ update [T.upAttr "event" "forum entry",
-              T.upAttrValue "matrikelnr" "user"]
+              T.upAttrValue "matrikelnr" "user",
+              T.upAttrValue "iso_datetime" "date"]
     $ hepCourses
     $ mergeWithCourses objects
     $ Q.objForumEntries objects
@@ -239,16 +241,10 @@ mergeWithCourses objects otherObjects =
                 (Q.objCourses objects)
                 otherObjects
 
-selectAssessmentResultsCourses objects = extract [
-        exAttr "matrikelnr",
-        exAttr "kurs",
-        exAttr "semester",
-        exAttr "iso_datetime", -- TODO: implement iso_datetime for evaluations!
-        exAttr "event",
-        exAttr "extra"
-    ]
+selectAssessmentResultsCourses objects =
+    -- TODO: implement iso_datetime for evaluations!
     -- TODO: check all attributes that exist for these objects
-    $ update [T.upJSON "extra" [
+    update [T.upJSON "extra" [
         "course_id",
         "user_id",
         "id",
@@ -260,17 +256,12 @@ selectAssessmentResultsCourses objects = extract [
     $ mergeWithCourses objects
     $ Q.objAssessmentResults objects
 
-selectAssessmentPlusCourses objects = extract [
-        exAttr "matrikelnr",
-        exAttr "kurs",
-        exAttr "semester",
-        exAttr "iso_datetime", -- TODO: implement iso_datetime for pluses!
-        exAttr "event",
-        exAttr "extra" -- TODO: implement "extra" for pluses
-    ]
+selectAssessmentPlusCourses objects =
+    -- TODO: implement iso_datetime for pluses!
+    -- TODO: implement "extra" for pluses
     -- TODO: check all attributes that exist for these objects
     {--- TODO: convert extra data to JSON and write out in single line-}
-    $ hepCourses
+    hepCourses
     $ update [T.upAttr "event" "plus",
               T.upAttrValue "matrikelnr" "user_id"]
     $ mergeWithCourses objects
@@ -282,31 +273,20 @@ selectAssessmentPlusCourses objects = extract [
                    {-Q.objAssessmentPlus objects-}
 
 
-selectFeedbackCourses objects = extract [
-        exAttr "matrikelnr",
-        exAttr "kurs",
-        exAttr "semester",
-        exAttr "iso_datetime", -- TODO: implement iso_datetime for feedback!
-        exAttr "event",
-        exAttr "extra" -- TODO: implement "extra" for feedback!
-    ]
+selectFeedbackCourses objects =
+    -- TODO: implement iso_datetime for feedback!
+    -- TODO: implement "extra" for feedback!
     -- TODO: check all attributes that exist for these objects
     {--- TODO: convert extra data to JSON and write out in single line-}
-    $ hepCourses
+    hepCourses
     $ update [T.upAttr "event" "feedback",
               T.upAttrValue "matrikelnr" "user_id"]
     $ mergeWithCourses objects
     $ Q.objFeedback objects
 
-selectPDFFiles objects = extract [
-        exAttr "matrikelnr",
-        exAttr "kurs",
-        exAttr "semester",
-        exAttr "iso_datetime",
-        exAttr "event",
-        exAttr "extra"
-    ]
-    $ update [T.upJSON "extra" [
+-- TODO: extract all the other files: sql, zip, find out correct upload type (using course_id)
+selectPDFFiles objects =
+    update [T.upJSON "extra" [
         "matrikelnr",
         "kurs",
         "semester",
@@ -332,14 +312,7 @@ objPDFFiles objects =
     $ select and [hasTag "pdf", inPath ".pdf"] objects
 
 groupAll code_objects forum_objects abgabe_objects register_objects = grouped
-    where forum           = selectForumEntries forum_objects
-          code            = selectUnittestResults code_objects
-          abgabe_pluses   = selectAssessmentPlusCourses abgabe_objects
-          abgabe_results  = selectAssessmentResultsCourses abgabe_objects
-          abgabe_feedback = selectFeedbackCourses abgabe_objects
-          abgabe_uploads  = selectPDFFiles abgabe_objects
-          register        = selectRegistrations register_objects
-          combined     =  concat [forum,code,abgabe_pluses,abgabe_results,abgabe_feedback, abgabe_uploads, register]
+    where combined = selectHEP extractHEPStudentGroup code_objects forum_objects abgabe_objects register_objects
           validStudentsOnly = filter (\x -> all id [isPrefixOf "a" (x!!0),
                                                    length (x!!0) == length "a0607688"])
           fields x y   = all id [(x!!0) == (y!!0),
@@ -347,11 +320,25 @@ groupAll code_objects forum_objects abgabe_objects register_objects = grouped
                                  (x!!2) == (y!!2)]
           grouped      = groupBy fields $ sort $ validStudentsOnly $ combined
 
-main = do
-    code_objects  <- selectFS and [inService "Code"]
-    forum_objects <- selectFS and [inService "Forum"]
-    abgabe_objects <- selectFS and [inService "Abgabe"]
-    register_objects <- selectFS and [inService "Register"]
+groupByCourseSemester code_objects forum_objects abgabe_objects register_objects = grouped
+    where combined = selectHEP extractHEPCSGroup code_objects forum_objects abgabe_objects register_objects
+          validStudentsOnly = filter (\x -> all id [isPrefixOf "a" (x!!2),
+                                                   length (x!!2) == length "a0607688"])
+          fields x y = all id [(x!!0) == (y!!0),
+                               (x!!1) == (y!!1)]
+          grouped    = groupBy fields $ sort $ validStudentsOnly $ combined
+
+selectHEP extraction code_objects forum_objects abgabe_objects register_objects = combined
+    where forum           = extraction $ selectForumEntries forum_objects
+          code            = extraction $ selectUnittestResults code_objects
+          abgabe_pluses   = extraction $ selectAssessmentPlusCourses abgabe_objects
+          abgabe_results  = extraction $ selectAssessmentResultsCourses abgabe_objects
+          abgabe_feedback = extraction $ selectFeedbackCourses abgabe_objects
+          abgabe_uploads  = extraction $ selectPDFFiles abgabe_objects
+          register        = extraction $ selectRegistrations register_objects
+          combined     =  concat [forum,code,abgabe_pluses,abgabe_results,abgabe_feedback, abgabe_uploads, register]
+
+writeGroupedInstances code_objects forum_objects abgabe_objects register_objects = 
     mapM (\group -> do
         let row       = group !! 0
         -- setup pre_name matrikelnummer=0, kurs=1, semester=2
@@ -367,6 +354,33 @@ main = do
         return ()
         ) $ groupAll code_objects forum_objects abgabe_objects register_objects
 
+writeInstancesSingleFile code_objects forum_objects abgabe_objects register_objects =
+    mapM (\course -> do
+        let row      = course !! 0
+        let kurs     = row !! 0
+        let semester = row !! 1
+        let filename = printf "all.csv"
+        let fullpath = joinPath ["hep", "KURS"++kurs, "se"++semester, filename]
+        let content = to_csv "" $ nub $ sort $ map (\row -> [
+                            row !! 3, -- timestamp
+                            row !! 2, -- matrikelnummer
+                            row !! 4, -- event
+                            row !! 5 -- extra data
+                        ]) course
+        {-let content = show $ course-}
+        writeFile fullpath content
+        return ()
+    ) $ groupByCourseSemester code_objects forum_objects abgabe_objects register_objects
+
+main = do
+    code_objects     <- selectFS and [inService "Code"]
+    forum_objects    <- selectFS and [inService "Forum"]
+    abgabe_objects   <- selectFS and [inService "Abgabe"]
+    register_objects <- selectFS and [inService "Register"]
+    -- writeGroupedInstances code_objects forum_objects abgabe_objects register_objects
+    writeInstancesSingleFile code_objects forum_objects abgabe_objects register_objects
+
+
 main2 = do
     objects <-  selectFS and [inService "Register"]
-    writeFile "test.csv" $ to_csv "" $ selectRegistrations objects
+    writeFile "test.csv" $ to_csv "" $ extractHEPStudentGroup $ selectRegistrations objects
