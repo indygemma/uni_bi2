@@ -12,10 +12,11 @@ import System.Time
 import Text.Printf
 
 -- TODO: modify the csv structure: timestamp, instance, user_id, user type, event, extra
+-- TODO: write transformation for timestamps in all events. left: forum date (have to append Timezone)
 -- TODO: modify activity label according to new PDF
 -- TODO: how to differentiate between exercise upload and milestone upload?
--- TODO: write transformation for timestamps in all events. left: forum date (have to append Timezone)
 -- TODO: write mapping of the defined process actions to the data here (are all events covered)
+-- TODO: randomize registration date between begin-reg and end-reg
 
 -- DONE: Refactor out the most common logic
 -- DONE: write csv files in the following format: matrikelnummer_courseid_semester.csv
@@ -260,6 +261,7 @@ selectAssessmentPlusCourses objects =
     -- TODO: implement iso_datetime for pluses!
     -- TODO: implement "extra" for pluses
     -- TODO: check all attributes that exist for these objects
+    -- TODO: the person who gave the plus is the first person under <group> in course.xml
     {--- TODO: convert extra data to JSON and write out in single line-}
     hepCourses
     $ update [T.upAttr "event" "plus",
@@ -272,7 +274,6 @@ selectAssessmentPlusCourses objects =
                    {-(exAttr "matrikelnr", exAttr "user_id" ),-}
                    {-Q.objAssessmentPlus objects-}
 
-
 selectFeedbackCourses objects =
     -- TODO: implement iso_datetime for feedback!
     -- TODO: implement "extra" for feedback!
@@ -283,6 +284,17 @@ selectFeedbackCourses objects =
               T.upAttrValue "matrikelnr" "user_id"]
     $ mergeWithCourses objects
     $ Q.objFeedback objects
+
+mergeAbgabePersons 
+
+-- this is the list of persons that exist in an Abgabe service per course_id
+-- admin="true"
+-- name="string"
+-- id="person002" etc
+-- email="string"
+-- group="2"
+-- team=""
+selectAbgabePersons objects = select and [hasTag "person", inPath "persons.xml"] objects
 
 -- TODO: extract all the other files: sql, zip, find out correct upload type (using course_id)
 selectPDFFiles objects =
