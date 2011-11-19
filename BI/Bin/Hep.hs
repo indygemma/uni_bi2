@@ -11,10 +11,9 @@ import System.Posix.Files
 import System.Time
 import Text.Printf
 
--- TODO: problem in timestamp conversion when digit < 10, without prepended 0 it will come up later after sort
 -- TODO: how to differentiate between exercise upload and milestone upload?
--- TODO: have to track *.sql *.zip
--- TODO: write transformation for timestamps in all events
+-- TODO: have to track *.sql *.zip, generalize pdf tracking + object creation (in this case the xml processing is a special case)
+-- TODO: write transformation for timestamps in all events. left: forum date (have to append Timezone)
 -- TODO: write mapping of the defined process actions to the data here (are all events covered)
 -- TODO: write queries for registration events
 
@@ -30,6 +29,8 @@ import Text.Printf
 --      --> have to track the modifed times of every file under data/Abgabe/{course_id}/Data/{matrikelnr}/{task_id}/{subtask_id}/*.pdf
 -- DONE: post-step, remove first three columns
 -- DONE: change output to be {kurs}/{semester}/{matrikelnr}.csv
+-- DONE: problem in timestamp conversion when digit < 10, without prepended 0 it will come up later after sort
+-- DONE: "score" in assessment is referencing the wrong thing, why? maybe after join the exText is different?
 
 -- selectCourses schema: [service, course_id, kurs, semester, description]
 -- selectCourses data: [["Abgabe", "10", "02", "04", "description"],...]
@@ -53,6 +54,120 @@ hepCourses = filterKursSemester [
         ("02", "04"), -- DBS
         ("00", "00") -- AlgoDat
     ]
+
+-- Register Stuff
+-- TODO: there's no specific time when a student enrolled, just use begin-reg
+-- 2011-01-22T18:23:14;Registration/20;Enroll;{"slot": 11, "unit":, "time": "11:30-11:45"}
+selectRegistrations objects = extract [
+        exAttr "matrikelnr",
+        exAttr "kurs",
+        exAttr "semester",
+        exAttr "iso_datetime",
+        exAttr "event",
+        exAttr "extra"
+    ]
+    $ update [
+        T.upAttrValue "iso_datetime" "begin-reg",
+        T.upAttr "event" "Enrollment",
+        T.upJSON "extra" [
+            "group_id", "title", "description", "slot_id", "units",
+            "slot_info", "course_id", "service", "unit"
+        ]
+    ]
+    $ hepCourses
+    $ mergeWithCourses objects
+    $ objRegistrationData objects
+
+-- + selectRegistrationGroups
+-- group_id=1, title="Abgabegespräch", description="description",
+-- slot_id=1, units=3, slot_info="Dienstag ..."
+-- + objRegisterTimes
+-- mode=person, begin-reg=2010-01-13T14:00:00", end-reg=2010-01-14T16:00:00, course_id=5, service=Register
+-- + objRegistrationsForStudents
+-- unit=1, group=1, slot=1, matrikelnr=a0607688, course_id=5, service=Register
+objRegistrationData objects =
+    objLeftJoin [(exAttr "service" , exAttr "service"),
+                 (exAttr "group_id", exAttr "group"),
+                 (exAttr "slot_id" , exAttr "slot"),
+                 (exAttr "course_id", exAttr "course_id")]
+                 (selectRegistrationGroups objects)
+                 $ mergeRegisterTimesForStudents objects
+
+
+-- mode=person, begin-reg=2010-01-13T14:00:00", end-reg=2010-01-14T16:00:00, course_id=5, service=Register
+-- unit=1, group=1, slot=1, matrikelnr=a0607688, course_id=5, service=Register
+selectRegisterTimesForStudents objects =
+    extract [
+        exAttr "service",
+        exAttr "course_id",
+        exAttr "mode",
+        exAttr "begin-reg",
+        exAttr "end-reg",
+        exAttr "unit",
+        exAttr "group",
+        exAttr "slot",
+        exAttr "matrikelnr"
+    ]
+    $ mergeRegisterTimesForStudents objects
+
+mergeRegisterTimesForStudents objects =
+    objLeftJoin [
+        (exAttr "service", exAttr "service"),
+        (exAttr "course_id", exAttr "course_id")
+    ] (objRegisterTimes objects)
+      (objRegistrationsForStudents objects)
+
+-- group_id=1, title="Abgabegespräch", description="description",
+-- slot_id=1, units=3, slot_info="Dienstag ..."
+selectRegistrationGroups objects =
+    -- 6) copy "id" as "slot_id" in <slot>
+    update [T.upAttrValue "slot_id" "id",
+            T.upAttrLookup "slot_info" exText,
+            T.upCourseId "course_id",
+            T.upAttrLookup "service" exService]
+    -- 5) lift <group> children <slots> and select them
+    $ select and [hasTag "slot"]
+    $ liftChildren and [hasTag "slot"]
+    $ update [
+        -- 4) push down <group>'s "description" as <slot>'s "description"
+        pushDown "description" "description",
+        -- 3) pull up <desc> exText as "description" in <group>
+        pullUp (\o -> concat $ extract [exText] $ select and [hasTag "desc"] $ oChildren o) "description",
+        -- 2) push down <group>'s "title" as <slot>'s "title"
+        pushDown "title" "title",
+        -- 1) push down <group>'s "id" as <slot>'s "group_id"
+        pushDown "id" "group_id"
+    ]
+    $ select and [hasTag "group", inService "Register"] objects
+
+selectRegisterTimes objects = extract [
+        exAttr "mode"
+    ] $ objRegisterTimes objects
+
+-- mode=person, begin-reg=2010-01-13T14:00:00", end-reg=2010-01-14T16:00:00, course_id=5, service=Register
+objRegisterTimes objects =
+    update [T.upCourseId "course_id",
+            T.upAttrLookup "service" exService]
+    $ select and [hasTag "register",
+                  inPath "custom.xml",
+                  inService "Register"] objects
+
+selectRegistrationsForStudents objects = extract [
+        exAttr "matrikelnr",
+        exAttr "group",
+        exAttr "slot",
+        exAttr "course_id",
+        exAttr "service"
+    ] $ objRegistrationsForStudents objects
+
+-- unit=1, group=1, slot=1, matrikelnr=a0607688, course_id=5, service=Register
+objRegistrationsForStudents objects =
+    update [T.upAttrLookup "matrikelnr" exText,
+            T.upCourseId "course_id",
+            T.upAttrLookup "service" exService]
+    $ select and [hasTag "registration",
+                  inPath "registrations.xml",
+                  inService "Register"] objects
 
 -- Code Stuff
 
@@ -216,28 +331,27 @@ objPDFFiles objects =
             T.upAttrLookup       "service" exService]
     $ select and [hasTag "pdf", inPath ".pdf"] objects
 
-groupAll code_objects forum_objects abgabe_objects = grouped
+groupAll code_objects forum_objects abgabe_objects register_objects = grouped
     where forum           = selectForumEntries forum_objects
           code            = selectUnittestResults code_objects
           abgabe_pluses   = selectAssessmentPlusCourses abgabe_objects
           abgabe_results  = selectAssessmentResultsCourses abgabe_objects
           abgabe_feedback = selectFeedbackCourses abgabe_objects
           abgabe_uploads  = selectPDFFiles abgabe_objects
-          {-combined     = forum ++ code ++ abgabe_results-}
-          {-combined     =  concat [forum,code,abgabe_pluses,abgabe_results,abgabe_results]-}
-          combined     =  concat [forum,code,abgabe_pluses,abgabe_results,abgabe_feedback, abgabe_uploads]
+          register        = selectRegistrations register_objects
+          combined     =  concat [forum,code,abgabe_pluses,abgabe_results,abgabe_feedback, abgabe_uploads, register]
           validStudentsOnly = filter (\x -> all id [isPrefixOf "a" (x!!0),
                                                    length (x!!0) == length "a0607688"])
           fields x y   = all id [(x!!0) == (y!!0),
                                  (x!!1) == (y!!1),
                                  (x!!2) == (y!!2)]
           grouped      = groupBy fields $ sort $ validStudentsOnly $ combined
-          {-grouped      = groupBy fields $ sort $ combined-}
 
 main = do
     code_objects  <- selectFS and [inService "Code"]
     forum_objects <- selectFS and [inService "Forum"]
     abgabe_objects <- selectFS and [inService "Abgabe"]
+    register_objects <- selectFS and [inService "Register"]
     mapM (\group -> do
         let row       = group !! 0
         -- setup pre_name matrikelnummer=0, kurs=1, semester=2
@@ -251,8 +365,8 @@ main = do
         let content   = to_csv "" $ nub $ sort $ map (\row -> [row!!3,row!!4,row!!5]) group
         writeFile fullpath content
         return ()
-        ) $ groupAll code_objects forum_objects abgabe_objects
+        ) $ groupAll code_objects forum_objects abgabe_objects register_objects
 
 main2 = do
-    objects <-  selectFS and [inService "Abgabe"]
-    writeFile "test.csv" $ to_csv "" $ selectFeedbackCourses objects
+    objects <-  selectFS and [inService "Register"]
+    writeFile "test.csv" $ to_csv "" $ selectRegistrations objects
