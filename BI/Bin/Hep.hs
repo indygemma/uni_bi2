@@ -11,6 +11,7 @@ import System.Posix.Files
 import System.Time
 import Text.Printf
 
+-- TODO: there are too many duplicates after join, why?
 -- TODO: modify the csv structure: timestamp, instance, user_id, user type, event, extra
 -- TODO: write transformation for timestamps in all events. left: forum date (have to append Timezone)
 -- TODO: modify activity label according to new PDF
@@ -282,19 +283,41 @@ selectFeedbackCourses objects =
     hepCourses
     $ update [T.upAttr "event" "feedback",
               T.upAttrValue "matrikelnr" "user_id"]
-    $ mergeWithCourses objects
-    $ Q.objFeedback objects
+    {-$ mergeAbgabePersons Q.objFeedback selectAbgabePersons objects-}
+    $ objLeftJoin [(exService, exService),
+                   (exAttr "user_id", exAttr "id")]
+                   (objLeftJoin [(exService, exService),
+                                 (exAttr "course_id", exAttr "id")]
+                                 (Q.objFeedback objects)
+                                 (Q.objCourses objects))
+                   (selectAbgabePersons objects)
 
-mergeAbgabePersons 
+selectAbgabeCourseGroups objects =
+    update [
+        T.upAttrLookup "type" exTag
+    ]
+    $ select or [hasTag "lecturer", hasTag "tutor"]
+    $ liftChildren or [hasTag "lecturer", hasTag "tutor"]
+    $ update [pushDown "course_id" "course_id",
+              pushDown "service" "service",
+              T.upCourseId "course_id",
+              T.upAttrLookup "service" exService,
+              pushDown "id" "group_id"]
+    $ select and [hasTag "group", inPath "course.xml"] objects
 
--- this is the list of persons that exist in an Abgabe service per course_id
+-- this is the list of persons that exist in an Abgabe service per course_idbgabePersons q1 q2 objects =
+--     objLeftJoin [(exAttr "user_id", exAttr "id")]
+--                     (q1 objects)
+--                     (q2 objects)
 -- admin="true"
 -- name="string"
 -- id="person002" etc
 -- email="string"
 -- group="2"
 -- team=""
-selectAbgabePersons objects = select and [hasTag "person", inPath "persons.xml"] objects
+selectAbgabePersons objects =
+    update [T.upAttrLookup "service" exService]
+    $ select and [hasTag "person", inPath "persons.xml"] objects
 
 -- TODO: extract all the other files: sql, zip, find out correct upload type (using course_id)
 selectPDFFiles objects =
@@ -384,7 +407,7 @@ writeInstancesSingleFile code_objects forum_objects abgabe_objects register_obje
         return ()
     ) $ groupByCourseSemester code_objects forum_objects abgabe_objects register_objects
 
-main = do
+main2 = do
     code_objects     <- selectFS and [inService "Code"]
     forum_objects    <- selectFS and [inService "Forum"]
     abgabe_objects   <- selectFS and [inService "Abgabe"]
@@ -393,6 +416,7 @@ main = do
     writeInstancesSingleFile code_objects forum_objects abgabe_objects register_objects
 
 
-main2 = do
-    objects <-  selectFS and [inService "Register"]
-    writeFile "test.csv" $ to_csv "" $ extractHEPStudentGroup $ selectRegistrations objects
+main = do
+    objects <-  selectFS and [inService "Abgabe"]
+    {-writeFile "test.csv" $ to_csv "" $ extractHEPStudentGroup $ selectFeedbackCourses objects-}
+    writeFile "test.csv" $ show $ selectAbgabeCourseGroups objects
