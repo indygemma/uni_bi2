@@ -283,7 +283,8 @@ selectAssessmentResults objects =
     ]]
     $ update [T.upAttr "event" "Evaluation",
               T.upAttrValue "matrikelnr" "user_id",
-              upAssessmentResultTime "iso_datetime"]
+              upAssessmentResultTime "iso_datetime",
+              T.upAttrValue "type" "lecturer"] -- it's always a lecturer who gives points out to students
     $ hepCourses
     $ objAssessmentResultsWithCoursesPersonsTestsPresenceDateFirstLecturer objects
 
