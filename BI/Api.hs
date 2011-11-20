@@ -35,8 +35,13 @@ sselect f xs = concat $ map (fetch f) xs
 applyFuncs :: [(Object -> Bool)] -> Object -> [Bool]
 applyFuncs fs y = map (\x -> x y) fs
 
-select :: ([Bool] -> Bool) -> [(Object -> Bool)] -> [Object] -> [Object]
-select cond fs = sselect (\x -> cond $ applyFuncs fs x)
+sselectParent :: (Object -> Bool) -> [Object] -> [Object]
+sselectParent f xs = concat $ map (fetchOneLevel f) xs
+
+-- TODO: somehow this returns duplicate entries, remove them...maybe we're traversing an element as child once and later as lone-standing element the second time?
+{-select :: ([Bool] -> Bool) -> [(Object -> Bool)] -> [Object] -> [Object]-}
+select cond fs = nub . sselect (\x -> cond $ applyFuncs fs x)
+{-select cond fs = sselectOneLevel (\x -> cond $ applyFuncs fs x)-}
 
 -- | Lifts up those child objects that match the filters
 liftChildren :: ([Bool] -> Bool) -> [(Object -> Bool)] -> [Object] -> [Object]

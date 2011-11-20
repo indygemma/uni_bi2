@@ -280,17 +280,36 @@ selectFeedbackCourses objects =
     -- TODO: implement "extra" for feedback!
     -- TODO: check all attributes that exist for these objects
     {--- TODO: convert extra data to JSON and write out in single line-}
-    hepCourses
+    update [T.upJSON "extra" [
+        "matrikelnr", "user_id", "author", "type", "group", "group_id", "course_id", "kurs", "semester",
+        "comment_length", "task", "subtask", "comment", "tag", "id"
+    ]]
+    $ hepCourses
     $ update [T.upAttr "event" "feedback",
-              T.upAttrValue "matrikelnr" "user_id"]
-    {-$ mergeAbgabePersons Q.objFeedback selectAbgabePersons objects-}
-    $ objLeftJoin [(exService, exService),
-                   (exAttr "user_id", exAttr "id")]
-                   (objLeftJoin [(exService, exService),
-                                 (exAttr "course_id", exAttr "id")]
-                                 (Q.objFeedback objects)
-                                 (Q.objCourses objects))
-                   (selectAbgabePersons objects)
+              T.upAttrValue "matrikelnr" "user_id",
+              T.upAttrLookup "tag" exTag]
+    $ objFeedbackWithCoursesPersonsTypes objects
+
+objFeedbackWithCoursesPersonsTypes objects =
+      objLeftJoin [(exService, exService),
+                   (exAttr "course_id", exAttr "course_id"),
+                   (exAttr "group", exAttr "group_id"),
+                   (exAttr "author", exAttr "id")]
+                  (objFeedbackWithCoursesPersons objects)
+                  (selectAbgabeCourseGroups objects)
+
+objFeedbackWithCoursesPersons objects =
+      (objLeftJoin [(exService, exService),
+                    (exAttr "course_id", exAttr "course_id"),
+                    (exAttr "user_id", exAttr "id")]
+                    (objFeedbackWithCourses objects)
+                    (selectAbgabePersons objects))
+
+objFeedbackWithCourses objects =
+      (objLeftJoin [(exService, exService),
+                    (exAttr "course_id", exAttr "id")]
+                   (Q.objFeedback objects)
+                   (Q.objCourses objects))
 
 selectAbgabeCourseGroups objects =
     update [
@@ -316,7 +335,8 @@ selectAbgabeCourseGroups objects =
 -- group="2"
 -- team=""
 selectAbgabePersons objects =
-    update [T.upAttrLookup "service" exService]
+    update [T.upAttrLookup "service" exService,
+            T.upCourseId "course_id"]
     $ select and [hasTag "person", inPath "persons.xml"] objects
 
 -- TODO: extract all the other files: sql, zip, find out correct upload type (using course_id)
@@ -383,8 +403,7 @@ writeGroupedInstances code_objects forum_objects abgabe_objects register_objects
         let filename  = printf "%s.csv" matrikelnr
         let fullpath  = joinPath ["hep", "KURS"++kurs, "se"++semester, filename]
         -- TODO: have to create non-existent paths
-        -- NOTE: somehow there are duplicate entries? nub them
-        let content   = to_csv "" $ nub $ sort $ map (\row -> [row!!3,row!!4,row!!5]) group
+        let content   = to_csv "" $ sort $ map (\row -> [row!!3,row!!4,row!!5]) group
         writeFile fullpath content
         return ()
         ) $ groupAll code_objects forum_objects abgabe_objects register_objects
@@ -396,7 +415,7 @@ writeInstancesSingleFile code_objects forum_objects abgabe_objects register_obje
         let semester = row !! 1
         let filename = printf "all.csv"
         let fullpath = joinPath ["hep", "KURS"++kurs, "se"++semester, filename]
-        let content = to_csv "" $ nub $ sort $ map (\row -> [
+        let content = to_csv "" $ sort $ map (\row -> [
                             row !! 3, -- timestamp
                             row !! 2, -- matrikelnummer
                             row !! 4, -- event
@@ -418,5 +437,6 @@ main2 = do
 
 main = do
     objects <-  selectFS and [inService "Abgabe"]
-    {-writeFile "test.csv" $ to_csv "" $ extractHEPStudentGroup $ selectFeedbackCourses objects-}
-    writeFile "test.csv" $ show $ selectAbgabeCourseGroups objects
+    writeFile "test.csv" $ to_csv "" $ extractHEPStudentGroup $ selectFeedbackCourses objects
+    {-writeFile "test.csv" $ show $ selectFeedbackCourses objects-}
+    {-writeFile "test.csv" $ show $ selectAbgabeCourseGroups objects-}

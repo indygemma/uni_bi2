@@ -35,7 +35,7 @@ selectCourses objects = unique
 objCourses objects =
         update [T.upKurs "kurs",
                 T.upSemester "semester"]
-        $ select and [hasTag "instance"] objects
+        $ select and [hasTag "instance", inPath "descriptions.xml", inService "Abgabe"] objects
 
 --
 -- Abgabe Queries
@@ -100,11 +100,12 @@ objFeedback objects =
     update [upLength "comment" "comment_length",
             pullUp (\o -> concat $ extract [exText] [o]) "comment"]
     $ select and [hasTag "comment"]
+    $ liftChildren and [hasTag "comment"]
     $ update [pushDown "id" "user_id",
               pushDown "course_id" "course_id",
               T.upCourseId "course_id",
               T.upAttrLookup "service" exService]
-    $ select and [hasTag "person", inPath "feedback.xml"] objects
+    $ select and [hasTag "person", inPath "feedback.xml", inService "Abgabe"] objects
 
 -- initial lists [service,course_id,group_id,person_id,name,email]
 --               [service,course_id,group_id,person_id,type]
