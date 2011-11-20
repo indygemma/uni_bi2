@@ -58,14 +58,6 @@ selectAssessmentPlus objects =
             exAttr "date"]
         $ objAssessmentPlus objects
 
-objAssessmentPlus objects =
-        select and [hasTag "plus"]
-        $ update [pushDown "id" "user_id",
-                  pushDown "course_id" "course_id",
-                  T.upCourseId "course_id",
-                  T.upAttrLookup "service" exService]
-        $ select and [hasTag "person", inPath "assessments.xml"] objects
-
 selectAssessmentResults objects =
         unique
         $ extract [
@@ -76,14 +68,30 @@ selectAssessmentResults objects =
             exText]
         $ objAssessmentResults objects
 
+objAssessmentPlus objects =
+        update [
+            T.upAttrValue "plus_date" "date"
+        ]
+        $ select and [hasTag "plus"]
+        $ liftChildren and [hasTag "plus"]
+        $ objAssessment objects
+
 objAssessmentResults objects =
-        select and [hasTag "result"]
-        $ update [pushDown "id" "user_id",
-                  pushDown "course_id" "course_id",
-                  T.upCourseId "course_id",
-                  T.upAttrLookup "score" exText,
-                  T.upAttrLookup "service" exService]
-        $ select and [hasTag "person", inPath "assessments.xml"] objects
+        update [
+            T.upAttrValue "result_id" "id",
+            T.upAttrLookup "points" exText
+        ]
+        $ select and [hasTag "result"]
+        $ liftChildren and [hasTag "result"]
+        $ objAssessment objects
+
+objAssessment objects =
+    update [pushDown "id" "user_id",
+            pushDown "course_id" "course_id",
+            pushDown "service" "service",
+            T.upCourseId "course_id",
+            T.upAttrLookup "service" exService]
+    $ select and [hasTag "person", inPath "assessments.xml", inService "Abgabe"] objects
 
 selectFeedback objects =
     extract [

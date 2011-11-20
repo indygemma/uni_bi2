@@ -55,6 +55,7 @@ filterKursSemester xs = filter (\x ->
     isKursSemester kurs semester x) xs)
 
 hepCourses = filterKursSemester [
+        ("02", "01"), -- DBS
         ("02", "03"), -- DBS
         ("02", "04"), -- DBS
         ("00", "00") -- AlgoDat
@@ -243,20 +244,68 @@ mergeWithCourses objects otherObjects =
                 (Q.objCourses objects)
                 otherObjects
 
-selectAssessmentResultsCourses objects =
+selectAssessmentResults objects =
     -- TODO: implement iso_datetime for evaluations!
     -- TODO: check all attributes that exist for these objects
     update [T.upJSON "extra" [
         "course_id",
         "user_id",
         "id",
-        "score"
+        "score",
+        "test_desc",
+        "test_id",
+        "result_id",
+        "points",
+        "group_id",
+        "presence",
+        "from",
+        "to"
     ]]
     $ update [T.upAttr "event" "Evaluation",
               T.upAttrValue "matrikelnr" "user_id"]
     $ hepCourses
-    $ mergeWithCourses objects
-    $ Q.objAssessmentResults objects
+    $ objAssessmentResultsWithCoursesPersonsTestsPresenceDate objects
+
+objAssessmentResultsWithCoursesPersonsTestsPresenceDate objects =
+    objLeftJoin [(exService, exService),
+                   (exAttr "course_id", exAttr "course_id"),
+                   (exAttr "group_id", exAttr "group_id"),
+                   (exAttr "test_id", exAttr "task_id")]
+                  (objAssessmentResultsWithCoursesPersonsTests objects)
+                  (objAbgabeTasks objects)
+
+objAssessmentResultsWithCoursesPersonsTests objects =
+    objLeftJoin [(exService, exService),
+                 (exAttr "course_id", exAttr "course_id"),
+                 (exAttr "group", exAttr "group_id"),
+                 (exAttr "result_id", exAttr "test_id")]
+                 (objAssessmentResultsWithCoursesPersons objects)
+                 (objAbgabeTest objects)
+
+objAssessmentResultsWithCoursesPersons objects =
+    (objLeftJoin [(exService, exService),
+                  (exAttr "course_id", exAttr "course_id"),
+                  (exAttr "user_id", exAttr "id")]
+                  (objAssessmentResultsWithCourses objects)
+                  (selectAbgabePersons objects))
+
+objAssessmentResultsWithCourses objects =
+    (objLeftJoin [(exService, exService),
+                  (exAttr "course_id", exAttr "id")]
+                 (Q.objAssessmentResults objects)
+                 (Q.objCourses objects))
+
+objAbgabeTest objects =
+    update [
+        T.upCourseId "course_id",
+        T.upAttrLookup "service" exService,
+        T.upAttrValue "test_id" "id",
+        T.upAttrValue "test_desc" "desc"
+    ]
+    $ select and [hasTag "test"]
+    $ liftChildren and [hasTag "test"]
+    $ update [pushDown "id" "group_id"]
+    $ select and [hasTag "group", inService "Abgabe", inPath "tasks.xml"] objects
 
 selectAssessmentPlusCourses objects =
     -- TODO: implement iso_datetime for pluses!
@@ -282,13 +331,21 @@ selectFeedbackCourses objects =
     {--- TODO: convert extra data to JSON and write out in single line-}
     update [T.upJSON "extra" [
         "matrikelnr", "user_id", "author", "type", "group", "group_id", "course_id", "kurs", "semester",
-        "comment_length", "task", "subtask", "comment", "tag", "id"
+        "comment_length", "task", "subtask", "comment", "tag", "id", "presence", "from", "to"
     ]]
     $ hepCourses
     $ update [T.upAttr "event" "feedback",
               T.upAttrValue "matrikelnr" "user_id",
               T.upAttrLookup "tag" exTag]
-    $ objFeedbackWithCoursesPersonsTypes objects
+    $ objFeedbackWithCoursesPersonsTypesPresenceDate objects
+
+objFeedbackWithCoursesPersonsTypesPresenceDate objects =
+      objLeftJoin [(exService, exService),
+                   (exAttr "course_id", exAttr "course_id"),
+                   (exAttr "group_id", exAttr "group_id"),
+                   (exAttr "task", exAttr "task_id")]
+                  (objFeedbackWithCoursesPersonsTypes objects)
+                  (objAbgabeTasks objects)
 
 objFeedbackWithCoursesPersonsTypes objects =
       objLeftJoin [(exService, exService),
@@ -310,6 +367,15 @@ objFeedbackWithCourses objects =
                     (exAttr "course_id", exAttr "id")]
                    (Q.objFeedback objects)
                    (Q.objCourses objects))
+
+objAbgabeTasks objects =
+    update [T.upCourseId "course_id",
+            T.upAttrLookup "service" exService,
+            T.upAttrValue "task_id" "id"]
+    $ select and [hasTag "task"]
+    $ liftChildren and [hasTag "task"]
+    $ update [pushDown "id" "group_id"]
+    $ select and [hasTag "group", inPath "tasks.xml", inService "Abgabe"] objects
 
 selectAbgabeCourseGroups objects =
     update [
@@ -387,7 +453,7 @@ selectHEP extraction code_objects forum_objects abgabe_objects register_objects 
     where forum           = extraction $ selectForumEntries forum_objects
           code            = extraction $ selectUnittestResults code_objects
           abgabe_pluses   = extraction $ selectAssessmentPlusCourses abgabe_objects
-          abgabe_results  = extraction $ selectAssessmentResultsCourses abgabe_objects
+          abgabe_results  = extraction $ selectAssessmentResults abgabe_objects
           abgabe_feedback = extraction $ selectFeedbackCourses abgabe_objects
           abgabe_uploads  = extraction $ selectPDFFiles abgabe_objects
           register        = extraction $ selectRegistrations register_objects
@@ -437,6 +503,8 @@ main2 = do
 
 main = do
     objects <-  selectFS and [inService "Abgabe"]
-    writeFile "test.csv" $ to_csv "" $ extractHEPStudentGroup $ selectFeedbackCourses objects
+    {-writeFile "test.csv" $ to_csv "" $ extractHEPStudentGroup $ selectFeedbackCourses objects-}
+    writeFile "test.csv" $ to_csv "" $ extractHEPStudentGroup $ selectAssessmentResults objects
+    {-writeFile "test.csv" $ show $ objAbgabeTasks objects-}
     {-writeFile "test.csv" $ show $ selectFeedbackCourses objects-}
     {-writeFile "test.csv" $ show $ selectAbgabeCourseGroups objects-}
