@@ -3,6 +3,7 @@ module Main where
 import BI.Api
 import BI.Types
 import Data.List
+import qualified Data.List.Split as S
 import qualified BI.Queries as Q
 import qualified BI.Transformations as T
 import qualified Data.Map as Map
@@ -244,6 +245,22 @@ mergeWithCourses objects otherObjects =
                 (Q.objCourses objects)
                 otherObjects
 
+-- Assumes input in "DD.MM.YY" format and returns an ISO Date in "YY-MM-DDT00:00:00"
+toDatetime :: String -> String
+toDatetime x = printf "%s-%s-%sT00:00:00" year month day
+    where year = s !! 2
+          month = s !! 1
+          day = s !! 0
+          s = S.splitOn "." x
+
+upAssessmentResultTime key x@(Object service path tag theText ttype attrMap attrTMap children) =
+    Object service path tag theText ttype newMap attrTMap children
+    where newMap = Map.insert key otherValue attrMap
+          otherValue = case length descValue == length "YY.MM.DD" of
+            True  -> toDatetime descValue
+            False -> exAttr "to" x
+          descValue = (!!0) $ S.splitOn " " $ exAttr "test_desc" x
+
 selectAssessmentResults objects =
     -- TODO: implement iso_datetime for evaluations!
     -- TODO: check all attributes that exist for these objects
@@ -259,12 +276,23 @@ selectAssessmentResults objects =
         "group_id",
         "presence",
         "from",
-        "to"
+        "to",
+        "iso_datetime",
+        "lecturer_id",
+        "course_desc"
     ]]
     $ update [T.upAttr "event" "Evaluation",
-              T.upAttrValue "matrikelnr" "user_id"]
+              T.upAttrValue "matrikelnr" "user_id",
+              upAssessmentResultTime "iso_datetime"]
     $ hepCourses
-    $ objAssessmentResultsWithCoursesPersonsTestsPresenceDate objects
+    $ objAssessmentResultsWithCoursesPersonsTestsPresenceDateFirstLecturer objects
+
+objAssessmentResultsWithCoursesPersonsTestsPresenceDateFirstLecturer objects =
+    objLeftJoin [(exService, exService),
+                 (exAttr "course_id", exAttr "course_id"),
+                 (exAttr "group_id", exAttr "id")]
+                 (objAssessmentResultsWithCoursesPersonsTestsPresenceDate objects)
+                 (objAssessmentFirstLecturer objects)
 
 objAssessmentResultsWithCoursesPersonsTestsPresenceDate objects =
     objLeftJoin [(exService, exService),
@@ -294,6 +322,15 @@ objAssessmentResultsWithCourses objects =
                   (exAttr "course_id", exAttr "id")]
                  (Q.objAssessmentResults objects)
                  (Q.objCourses objects))
+
+objAssessmentFirstLecturer objects =
+    update [
+        pullUp (\o -> return . exAttr "id" $ (!!0) $ oChildren o) "lecturer_id",
+        T.upCourseId "course_id",
+        T.upAttrLookup "service" exService,
+        T.upAttrValue "course_desc" "desc"
+    ]
+    $ select and [hasTag "group", inService "Abgabe", inPath "course.xml"] objects
 
 objAbgabeTest objects =
     update [

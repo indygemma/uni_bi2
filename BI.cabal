@@ -17,7 +17,8 @@ library
                      old-time,
                      unix,
                      MissingH,
-                     json
+                     json,
+                     split
     exposed-modules: BI.Types,
                      BI.Binary,
                      BI.Api,
