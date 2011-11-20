@@ -245,14 +245,6 @@ mergeWithCourses objects otherObjects =
                 (Q.objCourses objects)
                 otherObjects
 
--- Assumes input in "DD.MM.YY" format and returns an ISO Date in "YY-MM-DDT00:00:00"
-toDatetime :: String -> String
-toDatetime x = printf "%s-%s-%sT00:00:00" year month day
-    where year = s !! 2
-          month = s !! 1
-          day = s !! 0
-          s = S.splitOn "." x
-
 upAssessmentResultTime key x@(Object service path tag theText ttype attrMap attrTMap children) =
     Object service path tag theText ttype newMap attrTMap children
     where newMap = Map.insert key otherValue attrMap
@@ -260,9 +252,15 @@ upAssessmentResultTime key x@(Object service path tag theText ttype attrMap attr
             True  -> toDatetime descValue
             False -> exAttr "to" x
           descValue = (!!0) $ S.splitOn " " $ exAttr "test_desc" x
+          -- Assumes input in "DD.MM.YY" format and returns an ISO Date in "YY-MM-DDT00:00:00"
+          toDatetime :: String -> String
+          toDatetime x = printf "20%s-%s-%sT00:00:00" year month day
+            where year = s !! 2
+                  month = s !! 1
+                  day = s !! 0
+                  s = S.splitOn "." x
 
 selectAssessmentResults objects =
-    -- TODO: implement iso_datetime for evaluations!
     -- TODO: check all attributes that exist for these objects
     update [T.upJSON "extra" [
         "course_id",
@@ -284,7 +282,7 @@ selectAssessmentResults objects =
     $ update [T.upAttr "event" "Evaluation",
               T.upAttrValue "matrikelnr" "user_id",
               upAssessmentResultTime "iso_datetime",
-              T.upAttrValue "type" "lecturer"] -- it's always a lecturer who gives points out to students
+              T.upAttr "type" "lecturer"] -- it's always a lecturer who gives points out to students
     $ hepCourses
     $ objAssessmentResultsWithCoursesPersonsTestsPresenceDateFirstLecturer objects
 
@@ -345,22 +343,52 @@ objAbgabeTest objects =
     $ update [pushDown "id" "group_id"]
     $ select and [hasTag "group", inService "Abgabe", inPath "tasks.xml"] objects
 
-selectAssessmentPlusCourses objects =
+upAssessmentPlusTime key x@(Object service path tag theText ttype attrMap attrTMap children) =
+    Object service path tag theText ttype newMap attrTMap children
+    where newMap = Map.insert key (otherValue++"T00:00:00") attrMap
+          otherValue = exAttr "date" x
+
+selectAssessmentPlus objects =
     -- TODO: implement iso_datetime for pluses!
     -- TODO: implement "extra" for pluses
     -- TODO: check all attributes that exist for these objects
-    -- TODO: the person who gave the plus is the first person under <group> in course.xml
-    {--- TODO: convert extra data to JSON and write out in single line-}
-    hepCourses
+    update [T.upJSON "extra" [
+                "course_id",
+                "user_id",
+                "id",
+                "date",
+                "lecturer_id",
+                "type",
+                "group_id",
+                "group",
+                "iso_datetime"
+    ]]
     $ update [T.upAttr "event" "plus",
-              T.upAttrValue "matrikelnr" "user_id"]
-    $ mergeWithCourses objects
-    $ Q.objAssessmentPlus objects
-    -- left:pdf right:assessment
-    {-$ objLeftJoin [(exService, exService),-}
-                   {-(exAttr "course_id", exAttr "course_id"),-}
-                   {-(exAttr "matrikelnr", exAttr "user_id" ),-}
-                   {-Q.objAssessmentPlus objects-}
+              T.upAttrValue "matrikelnr" "user_id",
+              T.upAttr "type" "lecturer",
+              upAssessmentPlusTime "iso_datetime"]
+    $ hepCourses
+    $ objAssessmentPlusWithCoursesPersonsFirstLecturer objects
+
+objAssessmentPlusWithCoursesPersonsFirstLecturer objects =
+    objLeftJoin [(exService, exService),
+                 (exAttr "course_id", exAttr "course_id"),
+                 (exAttr "group", exAttr "id")]
+                 (objAssessmentPlusWithCoursesPersons objects)
+                 (objAssessmentFirstLecturer objects)
+
+objAssessmentPlusWithCoursesPersons objects =
+    objLeftJoin [(exService, exService),
+                  (exAttr "course_id", exAttr "course_id"),
+                  (exAttr "user_id", exAttr "id")]
+                  (objAssessmentPlusWithCourses objects)
+                  (selectAbgabePersons objects)
+
+objAssessmentPlusWithCourses objects =
+    objLeftJoin [(exService, exService),
+                 (exAttr "course_id", exAttr "id")]
+                 (Q.objAssessmentPlus objects)
+                 (Q.objCourses objects)
 
 selectFeedbackCourses objects =
     -- TODO: implement iso_datetime for feedback!
@@ -490,7 +518,7 @@ groupByCourseSemester code_objects forum_objects abgabe_objects register_objects
 selectHEP extraction code_objects forum_objects abgabe_objects register_objects = combined
     where forum           = extraction $ selectForumEntries forum_objects
           code            = extraction $ selectUnittestResults code_objects
-          abgabe_pluses   = extraction $ selectAssessmentPlusCourses abgabe_objects
+          abgabe_pluses   = extraction $ selectAssessmentPlus abgabe_objects
           abgabe_results  = extraction $ selectAssessmentResults abgabe_objects
           abgabe_feedback = extraction $ selectFeedbackCourses abgabe_objects
           abgabe_uploads  = extraction $ selectPDFFiles abgabe_objects
