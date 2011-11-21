@@ -471,8 +471,21 @@ selectAbgabePersons objects =
             T.upCourseId "course_id"]
     $ select and [hasTag "person", inPath "persons.xml"] objects
 
--- TODO: extract all the other files: sql, zip, find out correct upload type (using course_id)
-selectPDFFiles objects =
+-- DONE: have to differentiate between exercise and milestone!
+upUploadEvent key x@(Object service path tag theText ttype attrMap attrTMap children) =
+    Object service path tag theText ttype newMap attrTMap children
+    where newMap = Map.insert key event attrMap
+          exerciseUpload = "Exercise Upload"
+          milestoneUpload = "Milestone Upload"
+          event = case exAttr "course_id" x of
+            "1"  -> exerciseUpload
+            "2"  -> milestoneUpload
+            "9"  -> exerciseUpload
+            "10" -> milestoneUpload
+            "16" -> exerciseUpload
+            "17" -> milestoneUpload
+
+selectAbgabeUploads objects =
     update [T.upJSON "extra" [
         "matrikelnr",
         "kurs",
@@ -484,19 +497,23 @@ selectPDFFiles objects =
         "subtask_id",
         "filename"
     ]]
-    $ update [T.upAttr "event" "Exercise upload"] -- TODO: have to differentiate between exercise and milestone!
+    $ update [upUploadEvent "event"]
     $ hepCourses
     $ mergeWithCourses objects
-    $ objPDFFiles objects
+    $ objUploadedFiles objects
 
-objPDFFiles objects =
+-- DONE: extract all the other files: sql, zip, find out correct upload type (using course_id)
+objUploadedFiles objects =
     update [T.upCourseId         "course_id" ,
             T.upAbgabeMatrikelNr "matrikelnr",
             T.upAbgabeTaskId     "task_id"   ,
             T.upAbgabeSubTaskId  "subtask_id",
             T.upAbgabeFilename   "filename"  ,
             T.upAttrLookup       "service" exService]
-    $ select and [hasTag "pdf", inPath ".pdf"] objects
+    $ select or [hasTag "pdf", inPath ".pdf",
+                 hasTag "zip", inPath ".zip",
+                 hasTag "sql", inPath ".sql"]
+                 objects
 
 groupAll code_objects forum_objects abgabe_objects register_objects = grouped
     where combined = selectHEP extractHEPStudentGroup code_objects forum_objects abgabe_objects register_objects
@@ -521,7 +538,7 @@ selectHEP extraction code_objects forum_objects abgabe_objects register_objects 
           abgabe_pluses   = extraction $ selectAssessmentPlus abgabe_objects
           abgabe_results  = extraction $ selectAssessmentResults abgabe_objects
           abgabe_feedback = extraction $ selectFeedbackCourses abgabe_objects
-          abgabe_uploads  = extraction $ selectPDFFiles abgabe_objects
+          abgabe_uploads  = extraction $ selectAbgabeUploads abgabe_objects
           register        = extraction $ selectRegistrations register_objects
           combined     =  concat [forum,code,abgabe_pluses,abgabe_results,abgabe_feedback, abgabe_uploads, register]
 
@@ -570,7 +587,10 @@ main2 = do
 main = do
     objects <-  selectFS and [inService "Abgabe"]
     {-writeFile "test.csv" $ to_csv "" $ extractHEPStudentGroup $ selectFeedbackCourses objects-}
-    writeFile "test.csv" $ to_csv "" $ extractHEPStudentGroup $ selectAssessmentResults objects
+    {-writeFile "test.csv" $ to_csv "" $ extractHEPStudentGroup $ selectAssessmentResults objects-}
+    {-writeFile "test.csv" $ to_csv "" $ extractHEPStudentGroup $ selectAssessmentResults objects-}
+    
+    writeFile "test.csv" $ to_csv "" $ extractHEPStudentGroup $ selectAbgabeUploads objects
     {-writeFile "test.csv" $ show $ objAbgabeTasks objects-}
     {-writeFile "test.csv" $ show $ selectFeedbackCourses objects-}
     {-writeFile "test.csv" $ show $ selectAbgabeCourseGroups objects-}
