@@ -215,6 +215,16 @@ selectUnittestResults objects =
         $ Q.objUnittestResults objects
 
 -- Forum stuff
+upForumEvent key x@(Object service path tag theText ttype attrMap attrTMap children) =
+    Object service path tag theText ttype newMap attrTMap children
+    where newMap = Map.insert key event attrMap
+          AlgoDat = "Forum - AlgoDat post"
+          DBS = "Forum - DBS post"
+          event = case exAttr "course_id" x of
+            "26"  -> DBS
+            "73"  -> DBS
+            "113" -> DBS
+            "99"  -> AlgoDat
 
 selectForumEntries objects =
     -- TODO: convert to iso_datetime!
@@ -230,9 +240,11 @@ selectForumEntries objects =
         "subject_length",
         "text_length"
     ]]
-    $ update [T.upAttr "event" "forum entry",
-              T.upAttrValue "matrikelnr" "user",
-              T.upAttrValue "iso_datetime" "date"]
+    $ update [
+          T.upAttrValue "matrikelnr" "user",
+          T.upAttrValue "iso_datetime" "date",
+          upForumEvent "event"
+    ]
     $ hepCourses
     $ mergeWithCourses objects
     $ Q.objForumEntries objects
