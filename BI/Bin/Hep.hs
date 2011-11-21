@@ -16,7 +16,6 @@ import Text.Printf
 -- TODO: modify the csv structure: timestamp, instance, user_id, user type, event, extra
 -- TODO: write transformation for timestamps in all events. left: forum date (have to append Timezone)
 -- TODO: modify activity label according to new PDF
--- TODO: how to differentiate between exercise upload and milestone upload?
 -- TODO: write mapping of the defined process actions to the data here (are all events covered)
 -- TODO: randomize registration date between begin-reg and end-reg
 
@@ -37,6 +36,7 @@ import Text.Printf
 -- DONE: have to track *.sql *.zip, generalize pdf tracking + object creation (in this case the xml processing is a special case)
 -- DONE: write queries for registration events
 -- DONE: write out a version where all the data is stored in one place
+-- DONE: how to differentiate between exercise upload and milestone upload?
 
 -- selectCourses schema: [service, course_id, kurs, semester, description]
 -- selectCourses data: [["Abgabe", "10", "02", "04", "description"],...]
@@ -67,6 +67,8 @@ extractHEPStudentGroup = extract [
         exAttr "kurs",
         exAttr "semester",
         exAttr "iso_datetime",
+        exAttr "person_id",
+        exAttr "person_type",
         exAttr "event",
         exAttr "extra"
     ]
@@ -76,21 +78,27 @@ extractHEPCSGroup = extract [
         exAttr "semester",
         exAttr "matrikelnr",
         exAttr "iso_datetime",
+        exAttr "person_id",
+        exAttr "person_type",
         exAttr "event",
         exAttr "extra"
     ]
 
 -- Register Stuff
--- TODO: there's no specific time when a student enrolled, just use begin-reg
+-- DONE: there's no specific time when a student enrolled, just use begin-reg
 -- 2011-01-22T18:23:14;Registration/20;Enroll;{"slot": 11, "unit":, "time": "11:30-11:45"}
+-- TODO: slot registration, do we have to categorize between services?
 selectRegistrations objects =
     update [
         T.upAttrValue "iso_datetime" "begin-reg",
         T.upAttr "event" "Enrollment",
         T.upJSON "extra" [
             "group_id", "title", "description", "slot_id", "units",
-            "slot_info", "course_id", "service", "unit"
-        ]
+            "slot_info", "course_id", "service", "unit", "matrikelnr",
+            "iso_datetime", "begin-reg", "student"
+        ],
+        T.upAttrValue "person_id" "matrikelnr",
+        T.upAttr      "person_type" "student"
     ]
     $ hepCourses
     $ mergeWithCourses objects
@@ -208,8 +216,12 @@ selectUnittestResults objects =
             "INFO",
             "TIMEOUT"
         ]]
-        $ update [T.upAttr "event" "code unittest run",
-                  T.upAttrValue "matrikelnr" "identifier"]
+        $ update [
+            T.upAttr       "event"       "code unittest run",
+            T.upAttrValue  "matrikelnr"  "identifier",
+            T.upAttr       "person_type" "student",
+            T.upAttrValue  "person_id"   "identifier"
+        ]
         $ hepCourses
         $ mergeWithCourses objects
         $ Q.objUnittestResults objects
@@ -218,13 +230,13 @@ selectUnittestResults objects =
 upForumEvent key x@(Object service path tag theText ttype attrMap attrTMap children) =
     Object service path tag theText ttype newMap attrTMap children
     where newMap = Map.insert key event attrMap
-          AlgoDat = "Forum - AlgoDat post"
-          DBS = "Forum - DBS post"
+          algoDat = "Forum - AlgoDat post"
+          dbs = "Forum - DBS post"
           event = case exAttr "course_id" x of
-            "26"  -> DBS
-            "73"  -> DBS
-            "113" -> DBS
-            "99"  -> AlgoDat
+            "26"  -> dbs
+            "73"  -> dbs
+            "113" -> dbs
+            "99"  -> algoDat
 
 selectForumEntries objects =
     -- TODO: convert to iso_datetime!
@@ -241,7 +253,9 @@ selectForumEntries objects =
         "text_length"
     ]]
     $ update [
+          T.upAttrValue "person_id" "user",
           T.upAttrValue "matrikelnr" "user",
+          T.upAttr      "person_type" "student",
           T.upAttrValue "iso_datetime" "date",
           upForumEvent "event"
     ]
@@ -289,12 +303,15 @@ selectAssessmentResults objects =
         "to",
         "iso_datetime",
         "lecturer_id",
-        "course_desc"
+        "course_desc",
+        "kurs",
+        "semester"
     ]]
     $ update [T.upAttr "event" "Evaluation",
               T.upAttrValue "matrikelnr" "user_id",
               upAssessmentResultTime "iso_datetime",
-              T.upAttr "type" "lecturer"] -- it's always a lecturer who gives points out to students
+              T.upAttrValue "person_id" "lecturer_id",
+              T.upAttr "person_type" "lecturer"] -- it's always a lecturer who gives points out to students
     $ hepCourses
     $ objAssessmentResultsWithCoursesPersonsTestsPresenceDateFirstLecturer objects
 
@@ -373,11 +390,14 @@ selectAssessmentPlus objects =
                 "type",
                 "group_id",
                 "group",
-                "iso_datetime"
+                "iso_datetime",
+                "kurs",
+                "semester"
     ]]
-    $ update [T.upAttr "event" "plus",
-              T.upAttrValue "matrikelnr" "user_id",
-              T.upAttr "type" "lecturer",
+    $ update [T.upAttr             "event" "plus",
+              T.upAttrValue        "matrikelnr" "user_id",
+              T.upAttrValue        "person_id" "lecturer_id",
+              T.upAttr             "person_type" "lecturer",
               upAssessmentPlusTime "iso_datetime"]
     $ hepCourses
     $ objAssessmentPlusWithCoursesPersonsFirstLecturer objects
@@ -412,9 +432,11 @@ selectFeedbackCourses objects =
         "comment_length", "task", "subtask", "comment", "tag", "id", "presence", "from", "to"
     ]]
     $ hepCourses
-    $ update [T.upAttr "event" "feedback",
-              T.upAttrValue "matrikelnr" "user_id",
-              T.upAttrLookup "tag" exTag]
+    $ update [T.upAttr       "event"       "feedback",
+              T.upAttrValue  "matrikelnr"  "user_id",
+              T.upAttrLookup "tag"         exTag,
+              T.upAttrValue  "person_id"   "author",
+              T.upAttrValue  "person_type" "type"]
     $ objFeedbackWithCoursesPersonsTypesPresenceDate objects
 
 objFeedbackWithCoursesPersonsTypesPresenceDate objects =
@@ -509,7 +531,11 @@ selectAbgabeUploads objects =
         "subtask_id",
         "filename"
     ]]
-    $ update [upUploadEvent "event"]
+    $ update [
+        upUploadEvent "event",
+        T.upAttr      "person_type" "student",
+        T.upAttrValue "person_id"   "matrikelnr"
+    ]
     $ hepCourses
     $ mergeWithCourses objects
     $ objUploadedFiles objects
@@ -576,11 +602,12 @@ writeInstancesSingleFile code_objects forum_objects abgabe_objects register_obje
         let semester = row !! 1
         let filename = printf "all.csv"
         let fullpath = joinPath ["hep", "KURS"++kurs, "se"++semester, filename]
-        let content = to_csv "" $ sort $ map (\row -> [
+        let content = to_csv "timestamp;person_id;person_type;event;data\n" $ sort $ map (\row -> [
                             row !! 3, -- timestamp
-                            row !! 2, -- matrikelnummer
-                            row !! 4, -- event
-                            row !! 5 -- extra data
+                            row !! 4, -- person_id
+                            row !! 5, -- person_type
+                            row !! 6, -- event label
+                            row !! 7  -- extra data
                         ]) course
         {-let content = show $ course-}
         writeFile fullpath content
@@ -597,12 +624,44 @@ main2 = do
 
 
 main = do
-    objects <-  selectFS and [inService "Abgabe"]
-    {-writeFile "test.csv" $ to_csv "" $ extractHEPStudentGroup $ selectFeedbackCourses objects-}
-    {-writeFile "test.csv" $ to_csv "" $ extractHEPStudentGroup $ selectAssessmentResults objects-}
-    {-writeFile "test.csv" $ to_csv "" $ extractHEPStudentGroup $ selectAssessmentResults objects-}
+    -- OK
+    -- TODO: update event label
+    {-objects <-  selectFS and [inService "Forum"]-}
+    {-writeFile "test_forum.csv" $ to_csv "" $ extractHEPStudentGroup $ selectForumEntries objects-}
+
+    -- OK
+    -- TODO: update event label
+    {-objects <-  selectFS and [inService "Code"]-}
+    {-writeFile "test_unittests.csv" $ to_csv "" $ extractHEPStudentGroup $ selectUnittestResults objects-}
+
+    -- OK
+    -- TODO: update event label
+    {-objects <-  selectFS and [inService "Abgabe"]-}
+    {-writeFile "test_assplus.csv" $ to_csv "" $ extractHEPStudentGroup $ selectAssessmentPlus objects-}
+
+    -- OK
+    -- TODO: update event label
+    {-objects <-  selectFS and [inService "Abgabe"]-}
+    {-writeFile "test_assresults.csv" $ to_csv "" $ extractHEPStudentGroup $ selectAssessmentResults objects-}
+
+    -- OK
+    -- TODO: update event label
+    -- TODO: iso_datetime still required
+    {-objects <-  selectFS and [inService "Abgabe"]-}
+    {-writeFile "test_feedback.csv" $ to_csv "" $ extractHEPStudentGroup $ selectFeedbackCourses objects-}
+
+    -- OK
+    -- TODO: update event label
+    {-objects <-  selectFS and [inService "Abgabe"]-}
+    {-writeFile "test_abgabeuploads.csv" $ to_csv "" $ extractHEPStudentGroup $ selectAbgabeUploads objects-}
+
+    -- TODO: update event label
+    -- TODO: not complete. sometimes no matrikelnr + no timestamp
+    -- TODO: have to differentiate what kind of enrollment that is
+    objects <-  selectFS and [inService "Register"]
+    writeFile "test_registrations.csv" $ to_csv "" $ extractHEPStudentGroup $ selectRegistrations objects
     
-    writeFile "test.csv" $ to_csv "" $ extractHEPStudentGroup $ selectAbgabeUploads objects
+    {-writeFile "test.csv" $ to_csv "" $ extractHEPStudentGroup $ selectAbgabeUploads objects-}
     {-writeFile "test.csv" $ show $ objAbgabeTasks objects-}
     {-writeFile "test.csv" $ show $ selectFeedbackCourses objects-}
     {-writeFile "test.csv" $ show $ selectAbgabeCourseGroups objects-}

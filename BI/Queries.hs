@@ -35,7 +35,7 @@ selectCourses objects = unique
 objCourses objects =
         update [T.upKurs "kurs",
                 T.upSemester "semester"]
-        $ select and [hasTag "instance", inPath "descriptions.xml", inService "Abgabe"] objects
+        $ select and [hasTag "instance", inPath "descriptions.xml"] objects
 
 --
 -- Abgabe Queries
