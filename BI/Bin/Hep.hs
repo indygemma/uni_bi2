@@ -67,6 +67,7 @@ extractHEPStudentGroup = extract [
         exAttr "kurs",
         exAttr "semester",
         exAttr "iso_datetime",
+        exAttr "matrikelnr",
         exAttr "person_id",
         exAttr "person_type",
         exAttr "event",
@@ -78,24 +79,36 @@ extractHEPCSGroup = extract [
         exAttr "semester",
         exAttr "matrikelnr",
         exAttr "iso_datetime",
+        exAttr "matrikelnr",
         exAttr "person_id",
         exAttr "person_type",
         exAttr "event",
         exAttr "extra"
     ]
 
+upRegistration key x@(Object service path tag theText ttype attrMap attrTMap children) =
+    Object service path tag theText ttype newMap attrTMap children
+    where newMap = Map.insert key otherValue attrMap
+          otherValue = case exAttr "course_id" x of
+            "5" -> "Slot Registration - Tutorium - DBS"
+            "6" -> "Slot Registration - Milestones - DBS"
+            "7" -> "Slot Registration - Milestones - DBS"
+            "8" -> "Slot Registration - Milestones - DBS"
+            "15" -> "Slot Registration - Code - AlgoDat"
+            "20" -> "Slot Registration - Milestones - DBS"
+            "21" -> "Slot Registration - Milestones - DBS"
+            "22" -> "Slot Registration - Milestones - DBS"
+
 -- Register Stuff
 -- DONE: there's no specific time when a student enrolled, just use begin-reg
 -- 2011-01-22T18:23:14;Registration/20;Enroll;{"slot": 11, "unit":, "time": "11:30-11:45"}
--- TODO: slot registration, do we have to categorize between services?
 selectRegistrations objects =
     update [
         T.upAttrValue "iso_datetime" "begin-reg",
-        T.upAttr "event" "Enrollment",
+        upRegistration "event",
         T.upJSON "extra" [
-            "group_id", "title", "description", "slot_id", "units",
-            "slot_info", "course_id", "service", "unit", "matrikelnr",
-            "iso_datetime", "begin-reg", "student"
+            "group_id", "title", "kurs", "semester", "slot_id", "units",
+            "slot_info", "course_id", "service", "unit", "student"
         ],
         T.upAttrValue "person_id" "matrikelnr",
         T.upAttr      "person_type" "student"
@@ -429,14 +442,15 @@ selectFeedbackCourses objects =
     {--- TODO: convert extra data to JSON and write out in single line-}
     update [T.upJSON "extra" [
         "matrikelnr", "user_id", "author", "type", "group", "group_id", "course_id", "kurs", "semester",
-        "comment_length", "task", "subtask", "comment", "tag", "id", "presence", "from", "to"
+        "comment_length", "task", "subtask", "tag", "id", "presence", "from", "to"
     ]]
     $ hepCourses
     $ update [T.upAttr       "event"       "feedback",
               T.upAttrValue  "matrikelnr"  "user_id",
               T.upAttrLookup "tag"         exTag,
               T.upAttrValue  "person_id"   "author",
-              T.upAttrValue  "person_type" "type"]
+              T.upAttrValue  "person_type" "type",
+              T.upAttrValue  "iso_datetime" "to"]
     $ objFeedbackWithCoursesPersonsTypesPresenceDate objects
 
 objFeedbackWithCoursesPersonsTypesPresenceDate objects =
@@ -590,7 +604,14 @@ writeGroupedInstances code_objects forum_objects abgabe_objects register_objects
         let filename  = printf "%s.csv" matrikelnr
         let fullpath  = joinPath ["hep", "KURS"++kurs, "se"++semester, filename]
         -- TODO: have to create non-existent paths
-        let content   = to_csv "" $ sort $ map (\row -> [row!!3,row!!4,row!!5]) group
+        let content   = to_csv "timestamp;instance_id;person_id;person_type;event;data\n" $ sort $ map (\row -> [
+                            row !! 3, -- timestamp
+                            row !! 4, -- instance_id
+                            row !! 5, -- person_id
+                            row !! 6, -- person_type
+                            row !! 7, -- event label
+                            row !! 8  -- extra data
+                        ]) group
         writeFile fullpath content
         return ()
         ) $ groupAll code_objects forum_objects abgabe_objects register_objects
@@ -602,19 +623,20 @@ writeInstancesSingleFile code_objects forum_objects abgabe_objects register_obje
         let semester = row !! 1
         let filename = printf "all.csv"
         let fullpath = joinPath ["hep", "KURS"++kurs, "se"++semester, filename]
-        let content = to_csv "timestamp;person_id;person_type;event;data\n" $ sort $ map (\row -> [
+        let content = to_csv "timestamp;instance_id;person_id;person_type;event;data\n" $ sort $ map (\row -> [
                             row !! 3, -- timestamp
-                            row !! 4, -- person_id
-                            row !! 5, -- person_type
-                            row !! 6, -- event label
-                            row !! 7  -- extra data
+                            row !! 4, -- instance_id
+                            row !! 5, -- person_id
+                            row !! 6, -- person_type
+                            row !! 7, -- event label
+                            row !! 8  -- extra data
                         ]) course
         {-let content = show $ course-}
         writeFile fullpath content
         return ()
     ) $ groupByCourseSemester code_objects forum_objects abgabe_objects register_objects
 
-main2 = do
+main = do
     code_objects     <- selectFS and [inService "Code"]
     forum_objects    <- selectFS and [inService "Forum"]
     abgabe_objects   <- selectFS and [inService "Abgabe"]
@@ -622,8 +644,7 @@ main2 = do
     -- writeGroupedInstances code_objects forum_objects abgabe_objects register_objects
     writeInstancesSingleFile code_objects forum_objects abgabe_objects register_objects
 
-
-main = do
+main2 = do
     -- OK
     -- TODO: update event label
     {-objects <-  selectFS and [inService "Forum"]-}
@@ -631,6 +652,7 @@ main = do
 
     -- OK
     -- TODO: update event label
+    -- TODOLATER: some entries don't have timestamps, why? We can skip this for now by removing these lines...does not affect outcome
     {-objects <-  selectFS and [inService "Code"]-}
     {-writeFile "test_unittests.csv" $ to_csv "" $ extractHEPStudentGroup $ selectUnittestResults objects-}
 
@@ -646,7 +668,7 @@ main = do
 
     -- OK
     -- TODO: update event label
-    -- TODO: iso_datetime still required
+    -- DONE: iso_datetime still required
     {-objects <-  selectFS and [inService "Abgabe"]-}
     {-writeFile "test_feedback.csv" $ to_csv "" $ extractHEPStudentGroup $ selectFeedbackCourses objects-}
 
@@ -656,8 +678,8 @@ main = do
     {-writeFile "test_abgabeuploads.csv" $ to_csv "" $ extractHEPStudentGroup $ selectAbgabeUploads objects-}
 
     -- TODO: update event label
-    -- TODO: not complete. sometimes no matrikelnr + no timestamp
-    -- TODO: have to differentiate what kind of enrollment that is
+    -- NOT RELEVANT because outside HEP: not complete. sometimes no matrikelnr + no timestamp
+    -- DONE: have to differentiate what kind of enrollment that is
     objects <-  selectFS and [inService "Register"]
     writeFile "test_registrations.csv" $ to_csv "" $ extractHEPStudentGroup $ selectRegistrations objects
     
