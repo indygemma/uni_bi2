@@ -230,7 +230,7 @@ selectUnittestResults objects =
             "TIMEOUT"
         ]]
         $ update [
-            T.upAttr       "event"       "code unittest run",
+            T.upAttr       "event"       "Upload exercise",
             T.upAttrValue  "matrikelnr"  "identifier",
             T.upAttr       "person_type" "student",
             T.upAttrValue  "person_id"   "identifier"
@@ -243,13 +243,23 @@ selectUnittestResults objects =
 upForumEvent key x@(Object service path tag theText ttype attrMap attrTMap children) =
     Object service path tag theText ttype newMap attrTMap children
     where newMap = Map.insert key event attrMap
-          algoDat = "Forum - AlgoDat post"
-          dbs = "Forum - DBS post"
-          event = case exAttr "course_id" x of
-            "26"  -> dbs
-            "73"  -> dbs
-            "113" -> dbs
-            "99"  -> algoDat
+          event = case (exAttr "course_id" x, exAttr "nid" x) of
+            ("26","81")   -> "Lecture Forum: ask question"
+            ("26","323")  -> "Exercise Forum: ask question"
+            ("26","158")  -> "Milestone Forum: ask question"
+            ("73","110")  -> "Lecture Forum: ask question"
+            ("73","231")  -> "Exercise Forum: ask question"
+            ("73","224")  -> "Milestone Forum: ask question"
+            ("73","53")   -> "Tutorial Forum: ask question"
+            ("113","56")  -> "Lecture Forum: ask question"
+            ("113","136") -> "Exercise Forum: ask question"
+            ("113","77")  -> "Milestone Forum: ask question"
+            ("113","31")  -> "Tutorial Forum: ask question"
+            ("99","20")   -> "General Forum: ask question"
+            ("99","201")  -> "Programming Forum: ask question"
+            ("99","656")  -> "Project Forum: ask question"
+            ("99","39")   -> "Lecture Forum: ask question"
+            ("99","25")   -> "Misc. Forum: ask question"
 
 selectForumEntries objects =
     -- TODO: convert to iso_datetime!
@@ -636,7 +646,7 @@ writeInstancesSingleFile code_objects forum_objects abgabe_objects register_obje
         return ()
     ) $ groupByCourseSemester code_objects forum_objects abgabe_objects register_objects
 
-main = do
+main2 = do
     code_objects     <- selectFS and [inService "Code"]
     forum_objects    <- selectFS and [inService "Forum"]
     abgabe_objects   <- selectFS and [inService "Abgabe"]
@@ -644,11 +654,11 @@ main = do
     -- writeGroupedInstances code_objects forum_objects abgabe_objects register_objects
     writeInstancesSingleFile code_objects forum_objects abgabe_objects register_objects
 
-main2 = do
+main = do
     -- OK
     -- TODO: update event label
-    {-objects <-  selectFS and [inService "Forum"]-}
-    {-writeFile "test_forum.csv" $ to_csv "" $ extractHEPStudentGroup $ selectForumEntries objects-}
+    objects <-  selectFS and [inService "Forum"]
+    writeFile "test_forum.csv" $ to_csv "" $ extractHEPStudentGroup $ selectForumEntries objects
 
     -- OK
     -- TODO: update event label
@@ -680,8 +690,8 @@ main2 = do
     -- TODO: update event label
     -- NOT RELEVANT because outside HEP: not complete. sometimes no matrikelnr + no timestamp
     -- DONE: have to differentiate what kind of enrollment that is
-    objects <-  selectFS and [inService "Register"]
-    writeFile "test_registrations.csv" $ to_csv "" $ extractHEPStudentGroup $ selectRegistrations objects
+    {-objects <-  selectFS and [inService "Register"]-}
+    {-writeFile "test_registrations.csv" $ to_csv "" $ extractHEPStudentGroup $ selectRegistrations objects-}
     
     {-writeFile "test.csv" $ to_csv "" $ extractHEPStudentGroup $ selectAbgabeUploads objects-}
     {-writeFile "test.csv" $ show $ objAbgabeTasks objects-}
