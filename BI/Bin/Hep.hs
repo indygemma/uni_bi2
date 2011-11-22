@@ -458,6 +458,19 @@ objAssessmentPlusWithCourses objects =
                  (Q.objAssessmentPlus objects)
                  (Q.objCourses objects)
 
+upFeedback key x@(Object service path tag theText ttype attrMap attrTMap children) =
+    Object service path tag theText ttype newMap attrTMap children
+    where newMap = Map.insert key event attrMap
+          exerciseUpload = "Exercise feedback " ++ (exAttr "task" x)
+          milestoneUpload = "Milestone feedback " ++ (exAttr "task" x)
+          event  = case exAttr "course_id" x of
+            "1"  -> exerciseUpload
+            "2"  -> milestoneUpload
+            "9"  -> exerciseUpload
+            "10" -> milestoneUpload
+            "16" -> exerciseUpload
+            "17" -> milestoneUpload
+
 selectFeedbackCourses objects =
     -- TODO: implement iso_datetime for feedback!
     -- TODO: implement "extra" for feedback!
@@ -468,7 +481,7 @@ selectFeedbackCourses objects =
         "comment_length", "task", "subtask", "tag", "id", "presence", "from", "to"
     ]]
     $ hepCourses
-    $ update [T.upAttr       "event"       "feedback",
+    $ update [upFeedback   "event",
               T.upAttrValue  "matrikelnr"  "user_id",
               T.upAttrLookup "tag"         exTag,
               T.upAttrValue  "person_id"   "author",
@@ -659,15 +672,15 @@ writeInstancesSingleFile code_objects forum_objects abgabe_objects register_obje
         return ()
     ) $ groupByCourseSemester code_objects forum_objects abgabe_objects register_objects
 
-main2 = do
+main = do
     code_objects     <- selectFS and [inService "Code"]
     forum_objects    <- selectFS and [inService "Forum"]
     abgabe_objects   <- selectFS and [inService "Abgabe"]
     register_objects <- selectFS and [inService "Register"]
-    -- writeGroupedInstances code_objects forum_objects abgabe_objects register_objects
+    writeGroupedInstances code_objects forum_objects abgabe_objects register_objects
     writeInstancesSingleFile code_objects forum_objects abgabe_objects register_objects
 
-main = do
+main2 = do
     -- OK
     -- TODO: update event label
     {-objects <-  selectFS and [inService "Forum"]-}
@@ -686,14 +699,14 @@ main = do
 
     -- OK
     -- TODO: update event label
-    objects <-  selectFS and [inService "Abgabe"]
-    writeFile "test_assresults.csv" $ to_csv "" $ extractHEPStudentGroup $ selectAssessmentResults objects
+    {-objects <-  selectFS and [inService "Abgabe"]-}
+    {-writeFile "test_assresults.csv" $ to_csv "" $ extractHEPStudentGroup $ selectAssessmentResults objects-}
 
     -- OK
     -- TODO: update event label
     -- DONE: iso_datetime still required
-    {-objects <-  selectFS and [inService "Abgabe"]-}
-    {-writeFile "test_feedback.csv" $ to_csv "" $ extractHEPStudentGroup $ selectFeedbackCourses objects-}
+    objects <-  selectFS and [inService "Abgabe"]
+    writeFile "test_feedback.csv" $ to_csv "" $ extractHEPStudentGroup $ selectFeedbackCourses objects
 
     -- OK
     -- TODO: update event label
