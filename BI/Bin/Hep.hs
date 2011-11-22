@@ -90,14 +90,14 @@ upRegistration key x@(Object service path tag theText ttype attrMap attrTMap chi
     Object service path tag theText ttype newMap attrTMap children
     where newMap = Map.insert key otherValue attrMap
           otherValue = case exAttr "course_id" x of
-            "5" -> "Slot Registration - Tutorium - DBS"
-            "6" -> "Slot Registration - Milestones - DBS"
-            "7" -> "Slot Registration - Milestones - DBS"
-            "8" -> "Slot Registration - Milestones - DBS"
-            "15" -> "Slot Registration - Code - AlgoDat"
-            "20" -> "Slot Registration - Milestones - DBS"
-            "21" -> "Slot Registration - Milestones - DBS"
-            "22" -> "Slot Registration - Milestones - DBS"
+            "5" -> "Enroll Slot - Tutorium - DBS"
+            "6" -> "Enroll Slot - Milestones - DBS"
+            "7" -> "Enroll Slot - Milestones - DBS"
+            "8" -> "Enroll Slot - Milestones - DBS"
+            "15" -> "Enroll Slot - Code - AlgoDat"
+            "20" -> "Enroll Slot - Milestones - DBS"
+            "21" -> "Enroll Slot - Milestones - DBS"
+            "22" -> "Enroll Slot - Milestones - DBS"
 
 -- Register Stuff
 -- DONE: there's no specific time when a student enrolled, just use begin-reg
@@ -309,6 +309,19 @@ upAssessmentResultTime key x@(Object service path tag theText ttype attrMap attr
                   day = s !! 0
                   s = S.splitOn "." x
 
+upAssessmentResult key x@(Object service path tag theText ttype attrMap attrTMap children) =
+    Object service path tag theText ttype newMap attrTMap children
+    where newMap = Map.insert key event attrMap
+          exerciseUpload = "Evaluate presentation " ++ (exAttr "task_id" x)
+          milestoneUpload = "Evaluate milestone " ++ (exAttr "task_id" x)
+          event = case exAttr "course_id" x of
+            "1"  -> exerciseUpload
+            "2"  -> milestoneUpload
+            "9"  -> exerciseUpload
+            "10" -> milestoneUpload
+            "16" -> exerciseUpload
+            "17" -> milestoneUpload
+
 selectAssessmentResults objects =
     -- TODO: check all attributes that exist for these objects
     update [T.upJSON "extra" [
@@ -330,7 +343,7 @@ selectAssessmentResults objects =
         "kurs",
         "semester"
     ]]
-    $ update [T.upAttr "event" "Evaluation",
+    $ update [upAssessmentResult "event",
               T.upAttrValue "matrikelnr" "user_id",
               upAssessmentResultTime "iso_datetime",
               T.upAttrValue "person_id" "lecturer_id",
@@ -533,8 +546,8 @@ selectAbgabePersons objects =
 upUploadEvent key x@(Object service path tag theText ttype attrMap attrTMap children) =
     Object service path tag theText ttype newMap attrTMap children
     where newMap = Map.insert key event attrMap
-          exerciseUpload = "Exercise Upload"
-          milestoneUpload = "Milestone Upload"
+          exerciseUpload = "Upload exercise " ++ (exAttr "task_id" x)
+          milestoneUpload = "Upload milestone " ++ (exAttr "task_id" x)
           event = case exAttr "course_id" x of
             "1"  -> exerciseUpload
             "2"  -> milestoneUpload
@@ -657,8 +670,8 @@ main2 = do
 main = do
     -- OK
     -- TODO: update event label
-    objects <-  selectFS and [inService "Forum"]
-    writeFile "test_forum.csv" $ to_csv "" $ extractHEPStudentGroup $ selectForumEntries objects
+    {-objects <-  selectFS and [inService "Forum"]-}
+    {-writeFile "test_forum.csv" $ to_csv "" $ extractHEPStudentGroup $ selectForumEntries objects-}
 
     -- OK
     -- TODO: update event label
@@ -673,8 +686,8 @@ main = do
 
     -- OK
     -- TODO: update event label
-    {-objects <-  selectFS and [inService "Abgabe"]-}
-    {-writeFile "test_assresults.csv" $ to_csv "" $ extractHEPStudentGroup $ selectAssessmentResults objects-}
+    objects <-  selectFS and [inService "Abgabe"]
+    writeFile "test_assresults.csv" $ to_csv "" $ extractHEPStudentGroup $ selectAssessmentResults objects
 
     -- OK
     -- TODO: update event label
