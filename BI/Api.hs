@@ -177,6 +177,7 @@ unsafeInterleaveMapIO _ [] = return []
 selectFSService selectfs root output =
     return . concat =<< unsafeInterleaveMapIO (parseFile selectfs) =<< getFilesWithExt root ["raw"]
 
+to_csv :: String -> [[String]] -> String
 to_csv header a = header ++ (unlines $ map (intercalate ";") a)
 
 exT1 = [["code", "1", "a0607688", "Conrad Indiono", "indygemma@gmail.com"],
