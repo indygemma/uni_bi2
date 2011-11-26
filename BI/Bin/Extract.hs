@@ -130,7 +130,9 @@ doNormalProcess service path = do
     return (result)
 
 doProcess service path
-    | isInfixOf "resUnit.xml" path == True = do
+    -- have to collect timestamp for resPerf.xml and resUnit.xml
+    | any id [isInfixOf "resUnit.xml" path == True,
+              isInfixOf "resPerf.xml" path == True] = do
         let file = fst $ splitFileName path
         let containerFile = file ++ "CONTAINERTYPE.h"
         fileExists <- doesFileExist containerFile
