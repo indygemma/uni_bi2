@@ -212,15 +212,16 @@ objRegistrationsForStudents objects =
 
 -- Code Stuff
 
-upUnittestEvent key x@(Object service path tag theText ttype attrMap attrTMap children) =
+upCodeEvent key x@(Object service path tag theText ttype attrMap attrTMap children) =
     Object service path tag theText ttype newMap attrTMap children
     where newMap = Map.insert key event attrMap
-          event = case exAttr "course_id" x of
-            "1"  -> "Upload code phase 1"
-            "3"  -> "Upload code phase 2"
-            "5"  -> "Upload code phase 3"
+          event = case (takeBaseName $ oPath x, exAttr "course_id" x) of
+            ("resUnit", "1")  -> "Run unit tests phase 1"
+            ("resUnit", "3")  -> "Run unit tests phase 2"
+            ("resUnit", "5")  -> "Run unit tests phase 3"
+            ("resPerf",   _)  -> "Run performance tests"
 
-selectUnittestResults objects =
+selectCodeResults objects =
         update [T.upJSON "extra" [
             "matrikelnr",
             "kurs",
@@ -240,44 +241,14 @@ selectUnittestResults objects =
             "TIMEOUT"
         ]]
         $ update [
-            upUnittestEvent "event",
+            upCodeEvent     "event",
             T.upAttrValue   "matrikelnr"  "identifier",
             T.upAttr        "person_type" "student",
             T.upAttrValue   "person_id"   "identifier"
         ]
         $ hepCourses
         $ mergeWithCourses objects
-        $ Q.objUnittestResults objects
-
-selectPerformanceTestResults objects =
-    update [T.upJSON "extra" [
-        "matrikelnr",
-        "kurs",
-        "semester",
-        "event",
-        "service",
-        "course_id",
-        "group_id",
-        "timestamp", -- TODO: need proper upload date
-        "iso_datetime",
-        "theme",
-        "SUCCESS",
-        "WARNING",
-        "FAILURE",
-        "ERROR",
-        "INFO",
-        "TIMEOUT"
-    ]]
-    $ update [
-        -- TODO: proper event name
-        T.upAttr "event" "Performance run",
-        T.upAttrValue "matrikelnr" "identifier",
-        T.upAttr "person_type" "student",
-        T.upAttrValue "person_id" "identifier"
-    ]
-    $ hepCourses
-    $ mergeWithCourses objects
-    $ Q.objPerformancetestResults objects
+        $ Q.objCodeResults objects
 
 -- Forum stuff
 upForumEvent key x@(Object service path tag theText ttype attrMap attrTMap children) =
@@ -361,6 +332,11 @@ upAssessmentResult key x@(Object service path tag theText ttype attrMap attrTMap
             "10" -> milestoneUpload
             "16" -> exerciseUpload
             "17" -> milestoneUpload
+
+{-type BEFORE = LT-}
+{-type AFTER  = GT-}
+
+{-upVirtualEvent order-}
 
 selectAssessmentResults objects =
     -- TODO: check all attributes that exist for these objects
@@ -662,7 +638,7 @@ groupByCourseSemester code_objects forum_objects abgabe_objects register_objects
 
 selectHEP extraction code_objects forum_objects abgabe_objects register_objects = combined
     where forum           = extraction $ selectForumEntries forum_objects
-          code            = extraction $ selectUnittestResults code_objects
+          code            = extraction $ selectCodeResults code_objects
           abgabe_pluses   = extraction $ selectAssessmentPlus abgabe_objects
           abgabe_results  = extraction $ selectAssessmentResults abgabe_objects
           abgabe_feedback = extraction $ selectFeedbackCourses abgabe_objects
@@ -729,11 +705,8 @@ main = do
     -- OK
     -- DONE: update event label
     -- TODOLATER: some entries don't have timestamps, why? We can skip this for now by removing these lines...does not affect outcome
-    {-objects <-  selectFS and [inService "Code"]-}
-    {-writeFile "test_unittests.csv" $ to_csv "" $ extractHEPStudentGroup $ selectUnittestResults objects-}
-
     objects <-  selectFS and [inService "Code"]
-    writeFile "test_performancetests.csv" $ to_csv "" $ extractHEPStudentGroup $ selectPerformanceTestResults objects
+    writeFile "test_code.csv" $ to_csv "" $ extractHEPStudentGroup $ selectCodeResults objects
 
     -- OK
     -- DONE: update event label
