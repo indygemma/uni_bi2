@@ -262,7 +262,7 @@ selectPerformanceTestResults objects =
         "iso_datetime",
         "theme",
         "SUCCESS",
-        "WARNING"
+        "WARNING",
         "FAILURE",
         "ERROR",
         "INFO",
@@ -270,6 +270,7 @@ selectPerformanceTestResults objects =
     ]]
     $ update [
         -- TODO: proper event name
+        T.upAttr "event" "Performance run",
         T.upAttrValue "matrikelnr" "identifier",
         T.upAttr "person_type" "student",
         T.upAttrValue "person_id" "identifier"
@@ -728,8 +729,11 @@ main = do
     -- OK
     -- DONE: update event label
     -- TODOLATER: some entries don't have timestamps, why? We can skip this for now by removing these lines...does not affect outcome
+    {-objects <-  selectFS and [inService "Code"]-}
+    {-writeFile "test_unittests.csv" $ to_csv "" $ extractHEPStudentGroup $ selectUnittestResults objects-}
+
     objects <-  selectFS and [inService "Code"]
-    writeFile "test_unittests.csv" $ to_csv "" $ extractHEPStudentGroup $ selectUnittestResults objects
+    writeFile "test_performancetests.csv" $ to_csv "" $ extractHEPStudentGroup $ selectPerformanceTestResults objects
 
     -- OK
     -- DONE: update event label
