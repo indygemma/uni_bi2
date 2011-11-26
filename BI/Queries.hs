@@ -192,11 +192,18 @@ selectUnittestResults objects = extract [exService,
         $ objUnittestResults objects
 
 objUnittestResults objects =
-        update [T.upCourseId "course_id",
-                T.upGroupId  "group_id",
-                T.upUnittestStates,
-                T.upAttrLookup "service" exService]
-        $ select and [hasTag "test", inPath "resUnit.xml"] objects
+    update [T.upCourseId "course_id",
+            T.upGroupId  "group_id",
+            T.upUnittestStates,
+            T.upAttrLookup "service" exService]
+    $ select and [hasTag "test", inPath "resUnit.xml"] objects
+
+objPerformancetestResults objects =
+    update [T.upCourseId "course_id",
+            T.upGroupId  "group_id",
+            T.upUnittestStates,
+            T.upAttrLookup "service" exService]
+    $ select and [hasTag "test", inPath "resPerf.xml"] objects
 
 -- | Merge Statements | --
 

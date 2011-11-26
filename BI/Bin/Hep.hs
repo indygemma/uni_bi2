@@ -249,6 +249,35 @@ selectUnittestResults objects =
         $ mergeWithCourses objects
         $ Q.objUnittestResults objects
 
+selectPerformanceTestResults objects =
+    update [T.upJSON "extra" [
+        "matrikelnr",
+        "kurs",
+        "semester",
+        "event",
+        "service",
+        "course_id",
+        "group_id",
+        "timestamp", -- TODO: need proper upload date
+        "iso_datetime",
+        "theme",
+        "SUCCESS",
+        "WARNING"
+        "FAILURE",
+        "ERROR",
+        "INFO",
+        "TIMEOUT"
+    ]]
+    $ update [
+        -- TODO: proper event name
+        T.upAttrValue "matrikelnr" "identifier",
+        T.upAttr "person_type" "student",
+        T.upAttrValue "person_id" "identifier"
+    ]
+    $ hepCourses
+    $ mergeWithCourses objects
+    $ Q.objPerformancetestResults objects
+
 -- Forum stuff
 upForumEvent key x@(Object service path tag theText ttype attrMap attrTMap children) =
     Object service path tag theText ttype newMap attrTMap children
