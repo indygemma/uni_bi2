@@ -12,11 +12,13 @@ import System.Posix.Files
 import System.Time
 import Text.Printf
 
--- TODO: there are too many duplicates after join, why?
--- TODO: modify the csv structure: timestamp, instance, user_id, user type, event, extra
+-- TODO: wrap JSON column around with single quotes
+
+-- DONE: there are too many duplicates after join, why?
+-- DONE: modify the csv structure: timestamp, instance, user_id, user type, event, extra
 -- TODO: write transformation for timestamps in all events. left: forum date (have to append Timezone)
--- TODO: modify activity label according to new PDF
--- TODO: write mapping of the defined process actions to the data here (are all events covered)
+-- DONE: modify activity label according to new PDF
+-- DONE: write mapping of the defined process actions to the data here (are all events covered)
 -- TODO: randomize registration date between begin-reg and end-reg
 
 -- DONE: Refactor out the most common logic
@@ -210,6 +212,14 @@ objRegistrationsForStudents objects =
 
 -- Code Stuff
 
+upUnittestEvent key x@(Object service path tag theText ttype attrMap attrTMap children) =
+    Object service path tag theText ttype newMap attrTMap children
+    where newMap = Map.insert key event attrMap
+          event = case exAttr "course_id" x of
+            "1"  -> "Upload code phase 1"
+            "3"  -> "Upload code phase 2"
+            "5"  -> "Upload code phase 3"
+
 selectUnittestResults objects =
         update [T.upJSON "extra" [
             "matrikelnr",
@@ -230,10 +240,10 @@ selectUnittestResults objects =
             "TIMEOUT"
         ]]
         $ update [
-            T.upAttr       "event"       "Upload exercise",
-            T.upAttrValue  "matrikelnr"  "identifier",
-            T.upAttr       "person_type" "student",
-            T.upAttrValue  "person_id"   "identifier"
+            upUnittestEvent "event",
+            T.upAttrValue   "matrikelnr"  "identifier",
+            T.upAttr        "person_type" "student",
+            T.upAttrValue   "person_id"   "identifier"
         ]
         $ hepCourses
         $ mergeWithCourses objects
@@ -672,7 +682,7 @@ writeInstancesSingleFile code_objects forum_objects abgabe_objects register_obje
         return ()
     ) $ groupByCourseSemester code_objects forum_objects abgabe_objects register_objects
 
-main = do
+main2 = do
     code_objects     <- selectFS and [inService "Code"]
     forum_objects    <- selectFS and [inService "Forum"]
     abgabe_objects   <- selectFS and [inService "Abgabe"]
@@ -680,33 +690,33 @@ main = do
     writeGroupedInstances code_objects forum_objects abgabe_objects register_objects
     writeInstancesSingleFile code_objects forum_objects abgabe_objects register_objects
 
-main2 = do
+main = do
     -- OK
-    -- TODO: update event label
+    -- DONE: update event label
     {-objects <-  selectFS and [inService "Forum"]-}
     {-writeFile "test_forum.csv" $ to_csv "" $ extractHEPStudentGroup $ selectForumEntries objects-}
 
     -- OK
-    -- TODO: update event label
+    -- DONE: update event label
     -- TODOLATER: some entries don't have timestamps, why? We can skip this for now by removing these lines...does not affect outcome
-    {-objects <-  selectFS and [inService "Code"]-}
-    {-writeFile "test_unittests.csv" $ to_csv "" $ extractHEPStudentGroup $ selectUnittestResults objects-}
+    objects <-  selectFS and [inService "Code"]
+    writeFile "test_unittests.csv" $ to_csv "" $ extractHEPStudentGroup $ selectUnittestResults objects
 
     -- OK
-    -- TODO: update event label
+    -- DONE: update event label
     {-objects <-  selectFS and [inService "Abgabe"]-}
     {-writeFile "test_assplus.csv" $ to_csv "" $ extractHEPStudentGroup $ selectAssessmentPlus objects-}
 
     -- OK
-    -- TODO: update event label
+    -- DONE: update event label
     {-objects <-  selectFS and [inService "Abgabe"]-}
     {-writeFile "test_assresults.csv" $ to_csv "" $ extractHEPStudentGroup $ selectAssessmentResults objects-}
 
     -- OK
-    -- TODO: update event label
+    -- DONE: update event label
     -- DONE: iso_datetime still required
-    objects <-  selectFS and [inService "Abgabe"]
-    writeFile "test_feedback.csv" $ to_csv "" $ extractHEPStudentGroup $ selectFeedbackCourses objects
+    {-objects <-  selectFS and [inService "Abgabe"]-}
+    {-writeFile "test_feedback.csv" $ to_csv "" $ extractHEPStudentGroup $ selectFeedbackCourses objects-}
 
     -- OK
     -- TODO: update event label
