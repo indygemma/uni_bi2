@@ -222,17 +222,25 @@ upCodeEvent key x@(Object service path tag theText ttype attrMap attrTMap childr
             ("resPerf",   _)  -> "Run performance tests"
             (fileName, courseId) -> "Unknown file: " ++ fileName ++ " course_id: " ++ courseId
 
-injectEvent key search_string f x@(Object service path tag theText ttype attrMap attrTMap children) = result
+injectEvent key search_string handlers x@(Object service path tag theText ttype attrMap attrTMap children) = result
     where result = case isInfixOf search_string oldEvent of
             True  -> [newObject, x]
             False -> [x]
           oldEvent   = exAttr key x
           newObject  = Object service path tag theText ttype newAttrMap attrTMap children
-          newAttrMap = Map.insert key (f oldEvent) attrMap
+          applyHandler handlers x = foldr handle x handlers
+                where handle (hKey, handler) (key, value) = case hKey == key of
+                        True  -> (key, handler value)
+                        False -> (key, value)
+          newAttrMap = Map.fromList $ map (applyHandler handlers) $ Map.toList attrMap
 
 selectCodeResults objects =
-        concat $ updates (\object -> injectEvent "event" "Run unit tests phase" (\event -> printf "Upload code phase %c" $ last event) object) $
-        update [T.upJSON "extra" [
+        updates (\object -> injectEvent "event" "Run unit tests phase" [
+            ("event",        (\event -> printf "Upload code phase %c" $ last event)),
+            ("person_type",  (\_old   -> "student")),
+            ("person_id",    (\_old   -> exAttr "matrikelnr" object))
+        ] object)
+        $ update [T.upJSON "extra" [
             "matrikelnr",
             "kurs",
             "semester",
@@ -253,8 +261,8 @@ selectCodeResults objects =
         $ update [
             upCodeEvent     "event",
             T.upAttrValue   "matrikelnr"  "identifier",
-            T.upAttr        "person_type" "student",
-            T.upAttrValue   "person_id"   "identifier"
+            T.upAttr        "person_type" "system",
+            T.upAttr        "person_id"   "system"
         ]
         $ hepCourses
         $ mergeWithCourses objects
@@ -349,13 +357,16 @@ upAssessmentResult key x@(Object service path tag theText ttype attrMap attrTMap
 {-upVirtualEvent order-}
 
 selectAssessmentResults objects =
-    -- TODO: check all attributes that exist for these objects
-    concat $ updates (\object -> injectEvent "event" "Evaluate presentation" (\event -> printf "Present exercise %c" $ last event) object)
-    $ update [T.upJSON "extra" [
+    updates (\object -> injectEvent "event" "Evaluate presentation" [
+        ("event", (\event -> printf "Present exercise %c" $ last event)),
+        ("person_type",  (\_old   -> "student")),
+        ("person_id",    (\_old   -> exAttr "matrikelnr" object))
+        -- TODO: might have to adjust the presentation time
+    ] object) $
+    update [T.upJSON "extra" [
         "course_id",
         "user_id",
         "id",
-        "score",
         "test_desc",
         "test_id",
         "result_id",
@@ -370,11 +381,11 @@ selectAssessmentResults objects =
         "kurs",
         "semester"
     ]]
-    $ update [upAssessmentResult "event",
-              T.upAttrValue "matrikelnr" "user_id",
+    $ update [upAssessmentResult     "event",
+              T.upAttrValue          "matrikelnr" "user_id",
               upAssessmentResultTime "iso_datetime",
-              T.upAttrValue "person_id" "lecturer_id",
-              T.upAttr "person_type" "lecturer"] -- it's always a lecturer who gives points out to students
+              T.upAttrValue          "person_id" "lecturer_id",
+              T.upAttr               "person_type" "lecturer"] -- it's always a lecturer who gives points out to students
     $ hepCourses
     $ objAssessmentResultsWithCoursesPersonsTestsPresenceDateFirstLecturer objects
 
