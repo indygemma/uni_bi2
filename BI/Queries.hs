@@ -191,13 +191,23 @@ selectUnittestResults objects = extract [exService,
                    exAttr "TIMEOUT"]
         $ objCodeResults objects
 
-objCodeResults objects =
+objUnittestResults objects =
     update [T.upCourseId "course_id",
             T.upGroupId  "group_id",
             T.upUnittestStates,
-            T.upAttrLookup "service" exService]
-    $ select and [hasTag "test"]
-    $ select or  [inPath "resUnit.xml", inPath "resPerf.xml"] objects
+            T.upAttrLookup "service" exService,
+            T.upAttrLookup "filepath" exPath]
+    $ select and [hasTag "test", inPath "resUnit.xml"] objects
+
+objPerformancetestResults objects =
+    update [T.upCourseId "course_id",
+            T.upGroupId  "group_id",
+            T.upUnittestStates,
+            T.upAttrLookup "service" exService,
+            T.upAttrLookup "filepath" exPath]
+    $ select and [hasTag "test", inPath "resPerf.xml"] objects
+
+objCodeResults objects = (objUnittestResults objects) ++ (objPerformancetestResults objects)
 
 -- | Merge Statements | --
 

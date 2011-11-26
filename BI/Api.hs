@@ -119,6 +119,9 @@ performUpdate xs obj = foldr (\f y -> f y) obj xs
 update :: [Object -> Object] -> [Object] -> [Object]
 update xs = map (performUpdate xs)
 
+updates :: (Object -> [Object]) -> [Object] -> [Object]
+updates f = concat . map (\obj -> f obj)
+
 updateM xs objs = mapM (\x -> return (performUpdate xs x)) objs
 
 -- | Given an object, take the value of the given attribute

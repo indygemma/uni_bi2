@@ -215,13 +215,23 @@ objRegistrationsForStudents objects =
 upCodeEvent key x@(Object service path tag theText ttype attrMap attrTMap children) =
     Object service path tag theText ttype newMap attrTMap children
     where newMap = Map.insert key event attrMap
-          event = case (takeBaseName $ oPath x, exAttr "course_id" x) of
+          event = case (takeBaseName $ exAttr "filepath" x, exAttr "course_id" x) of
             ("resUnit", "1")  -> "Run unit tests phase 1"
             ("resUnit", "3")  -> "Run unit tests phase 2"
             ("resUnit", "5")  -> "Run unit tests phase 3"
             ("resPerf",   _)  -> "Run performance tests"
+            (fileName, courseId) -> "Unknown file: " ++ fileName ++ " course_id: " ++ courseId
+
+injectEvent key search_string f x@(Object service path tag theText ttype attrMap attrTMap children) = result
+    where result = case isInfixOf search_string oldEvent of
+            True  -> [newObject, x]
+            False -> [x]
+          oldEvent   = exAttr key x
+          newObject  = Object service path tag theText ttype newAttrMap attrTMap children
+          newAttrMap = Map.insert key (f oldEvent) attrMap
 
 selectCodeResults objects =
+        concat $ updates (\object -> injectEvent "event" "Run unit tests phase" (\event -> printf "Upload code phase %c" $ last event) object) $
         update [T.upJSON "extra" [
             "matrikelnr",
             "kurs",
@@ -340,7 +350,8 @@ upAssessmentResult key x@(Object service path tag theText ttype attrMap attrTMap
 
 selectAssessmentResults objects =
     -- TODO: check all attributes that exist for these objects
-    update [T.upJSON "extra" [
+    concat $ updates (\object -> injectEvent "event" "Evaluate presentation" (\event -> printf "Present exercise %c" $ last event) object)
+    $ update [T.upJSON "extra" [
         "course_id",
         "user_id",
         "id",
