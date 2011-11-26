@@ -178,7 +178,8 @@ selectFSService selectfs root output =
     return . concat =<< unsafeInterleaveMapIO (parseFile selectfs) =<< getFilesWithExt root ["raw"]
 
 to_csv :: String -> [[String]] -> String
-to_csv header a = header ++ (unlines $ map (intercalate ";") a)
+to_csv header a = header ++ (unlines $ map (intercalate ";" . surround "'") a)
+    where surround x = map (\y -> x ++ y ++ x)
 
 exT1 = [["code", "1", "a0607688", "Conrad Indiono", "indygemma@gmail.com"],
         ["code", "2", "person005", "asdlaskjd", "lkajsdlj@univie.ac.at"]]
