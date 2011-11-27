@@ -104,7 +104,7 @@ upRegistration key x@(Object service path tag theText ttype attrMap attrTMap chi
 -- Register Stuff
 -- DONE: there's no specific time when a student enrolled, just use begin-reg
 -- 2011-01-22T18:23:14;Registration/20;Enroll;{"slot": 11, "unit":, "time": "11:30-11:45"}
-selectRegistrations objects =
+selectRegistrations filterf objects =
     update [
         T.upAttrValue "iso_datetime" "begin-reg",
         upRegistration "event",
@@ -115,6 +115,7 @@ selectRegistrations objects =
         T.upAttrValue "person_id" "matrikelnr",
         T.upAttr      "person_type" "student"
     ]
+    $ filterf
     $ hepCourses
     $ mergeWithCourses objects
     $ objRegistrationData objects
@@ -332,7 +333,7 @@ upAssessmentResultTime key x@(Object service path tag theText ttype attrMap attr
           descValue = (!!0) $ S.splitOn " " $ exAttr "test_desc" x
           -- Assumes input in "DD.MM.YY" format and returns an ISO Date in "YY-MM-DDT00:00:00"
           toDatetime :: String -> String
-          toDatetime x = printf "20%s-%s-%sT00:00:00" year month day
+          toDatetime x = printf "20%s-%s-%sT23:59:59" year month day
             where year = s !! 2
                   month = s !! 1
                   day = s !! 0
@@ -356,7 +357,7 @@ upAssessmentResult key x@(Object service path tag theText ttype attrMap attrTMap
 
 {-upVirtualEvent order-}
 
-selectAssessmentResults objects =
+selectAssessmentResults filterf objects =
     updates (\object -> injectEvent "event" "Evaluate presentation" [
         ("event", (\event -> printf "Present exercise %c" $ last event)),
         ("person_type",  (\_old   -> "student")),
@@ -386,6 +387,7 @@ selectAssessmentResults objects =
               upAssessmentResultTime "iso_datetime",
               T.upAttrValue          "person_id" "lecturer_id",
               T.upAttr               "person_type" "lecturer"] -- it's always a lecturer who gives points out to students
+    $ filterf
     $ hepCourses
     $ objAssessmentResultsWithCoursesPersonsTestsPresenceDateFirstLecturer objects
 
@@ -451,7 +453,7 @@ upAssessmentPlusTime key x@(Object service path tag theText ttype attrMap attrTM
     where newMap = Map.insert key (otherValue++"T00:00:00") attrMap
           otherValue = exAttr "date" x
 
-selectAssessmentPlus objects =
+selectAssessmentPlus filterf objects =
     -- TODO: implement iso_datetime for pluses!
     -- TODO: implement "extra" for pluses
     -- TODO: check all attributes that exist for these objects
@@ -468,6 +470,7 @@ selectAssessmentPlus objects =
                 "kurs",
                 "semester"
     ]]
+    $ filterf
     $ update [T.upAttr             "event" "plus",
               T.upAttrValue        "matrikelnr" "user_id",
               T.upAttrValue        "person_id" "lecturer_id",
@@ -509,7 +512,7 @@ upFeedback key x@(Object service path tag theText ttype attrMap attrTMap childre
             "16" -> exerciseUpload
             "17" -> milestoneUpload
 
-selectFeedbackCourses objects =
+selectFeedbackCourses filterf objects =
     -- TODO: implement iso_datetime for feedback!
     -- TODO: implement "extra" for feedback!
     -- TODO: check all attributes that exist for these objects
@@ -518,6 +521,7 @@ selectFeedbackCourses objects =
         "matrikelnr", "user_id", "author", "type", "group", "group_id", "course_id", "kurs", "semester",
         "comment_length", "task", "subtask", "tag", "id", "presence", "from", "to"
     ]]
+    $ filterf
     $ hepCourses
     $ update [upFeedback   "event",
               T.upAttrValue  "matrikelnr"  "user_id",
@@ -607,7 +611,7 @@ upUploadEvent key x@(Object service path tag theText ttype attrMap attrTMap chil
             "16" -> exerciseUpload
             "17" -> milestoneUpload
 
-selectAbgabeUploads objects =
+selectAbgabeUploads filterf objects =
     update [T.upJSON "extra" [
         "matrikelnr",
         "kurs",
@@ -619,6 +623,7 @@ selectAbgabeUploads objects =
         "subtask_id",
         "filename"
     ]]
+    $ filterf
     $ update [
         upUploadEvent "event",
         T.upAttr      "person_type" "student",
@@ -627,6 +632,18 @@ selectAbgabeUploads objects =
     $ hepCourses
     $ mergeWithCourses objects
     $ objUploadedFiles objects
+
+filterAbgabeDBSExerciseCourse = filter isExerciseEvent
+    where isExerciseEvent o | exAttr "course_id" o == "1"  = True
+                            | exAttr "course_id" o == "9"  = True
+                            | exAttr "course_id" o == "16" = True
+                            | otherwise                    = False
+
+filterAbgabeDBSMilestoneCourse = filter isMilestoneEvent
+    where isMilestoneEvent o | exAttr "course_id" o == "2"  = True
+                             | exAttr "course_id" o == "10" = True
+                             | exAttr "course_id" o == "17" = True
+                             | otherwise                    = False
 
 -- DONE: extract all the other files: sql, zip, find out correct upload type (using course_id)
 objUploadedFiles objects =
@@ -641,8 +658,8 @@ objUploadedFiles objects =
                  hasTag "sql", inPath ".sql"]
                  objects
 
-groupAll code_objects forum_objects abgabe_objects register_objects = grouped
-    where combined = selectHEP extractHEPStudentGroup code_objects forum_objects abgabe_objects register_objects
+groupAll selector code_objects forum_objects abgabe_objects register_objects = grouped
+    where combined = selector extractHEPStudentGroup code_objects forum_objects abgabe_objects register_objects
           validStudentsOnly = filter (\x -> all id [isPrefixOf "a" (x!!0),
                                                    length (x!!0) == length "a0607688"])
           fields x y   = all id [(x!!0) == (y!!0),
@@ -650,8 +667,8 @@ groupAll code_objects forum_objects abgabe_objects register_objects = grouped
                                  (x!!2) == (y!!2)]
           grouped      = groupBy fields $ sort $ validStudentsOnly $ combined
 
-groupByCourseSemester code_objects forum_objects abgabe_objects register_objects = grouped
-    where combined = selectHEP extractHEPCSGroup code_objects forum_objects abgabe_objects register_objects
+groupByCourseSemester selector code_objects forum_objects abgabe_objects register_objects = grouped
+    where combined = selector extractHEPCSGroup code_objects forum_objects abgabe_objects register_objects
           validStudentsOnly = filter (\x -> all id [isPrefixOf "a" (x!!2),
                                                    length (x!!2) == length "a0607688"])
           fields x y = all id [(x!!0) == (y!!0),
@@ -661,21 +678,52 @@ groupByCourseSemester code_objects forum_objects abgabe_objects register_objects
 selectHEP extraction code_objects forum_objects abgabe_objects register_objects = combined
     where forum           = extraction $ selectForumEntries forum_objects
           code            = extraction $ selectCodeResults code_objects
-          abgabe_pluses   = extraction $ selectAssessmentPlus abgabe_objects
-          abgabe_results  = extraction $ selectAssessmentResults abgabe_objects
-          abgabe_feedback = extraction $ selectFeedbackCourses abgabe_objects
-          abgabe_uploads  = extraction $ selectAbgabeUploads abgabe_objects
-          register        = extraction $ selectRegistrations register_objects
-          combined     =  concat [forum,code,abgabe_pluses,abgabe_results,abgabe_feedback, abgabe_uploads, register]
+          abgabe_pluses   = extraction $ selectAssessmentPlus id abgabe_objects
+          abgabe_results  = extraction $ selectAssessmentResults id abgabe_objects
+          abgabe_feedback = extraction $ selectFeedbackCourses id abgabe_objects
+          abgabe_uploads  = extraction $ selectAbgabeUploads id abgabe_objects
+          register        = extraction $ selectRegistrations id register_objects
+          combined        = concat [forum,code,abgabe_pluses,abgabe_results,abgabe_feedback, abgabe_uploads, register]
 
-writeGroupedInstances code_objects forum_objects abgabe_objects register_objects = 
+selectDBSExercisesOnly extraction code_objects forum_objects abgabe_objects register_objects = concat [
+    -- abgabe uploads
+    extraction $ selectAbgabeUploads filterAbgabeDBSExerciseCourse abgabe_objects,
+    -- abgabe plus
+    extraction $ selectAssessmentPlus filterAbgabeDBSExerciseCourse abgabe_objects,
+    -- abgabe results
+    extraction $ selectAssessmentResults filterAbgabeDBSExerciseCourse abgabe_objects
+    ]
+
+selectDBSMilestonesOnly extraction code_objects forum_objects abgabe_objects register_objects = concat [
+        -- abgabe plus
+        extraction $ selectAssessmentPlus filterAbgabeDBSMilestoneCourse abgabe_objects,
+        -- abgabe results
+        extraction $ selectAssessmentResults filterAbgabeDBSMilestoneCourse abgabe_objects,
+        -- abgabe feedback
+        extraction $ selectFeedbackCourses filterAbgabeDBSMilestoneCourse abgabe_objects,
+        -- abgabe uploads
+        extraction $ selectAbgabeUploads filterAbgabeDBSMilestoneCourse abgabe_objects,
+        -- registrations
+        extraction $ selectRegistrations id register_objects
+    ]
+
+selectAllWithoutForums extraction code_objects forum_objects abgabe_objects register_objects = concat [
+      extraction $ selectCodeResults code_objects,
+      extraction $ selectAssessmentPlus id abgabe_objects,
+      extraction $ selectAssessmentResults id abgabe_objects,
+      extraction $ selectFeedbackCourses id abgabe_objects,
+      extraction $ selectAbgabeUploads id abgabe_objects,
+      extraction $ selectRegistrations id register_objects
+    ]
+
+writeGroupedInstances selector filenamef code_objects forum_objects abgabe_objects register_objects =
     mapM (\group -> do
         let row       = group !! 0
         -- setup pre_name matrikelnummer=0, kurs=1, semester=2
         let matrikelnr = row!!0
         let kurs = row!!1
         let semester = row!!2
-        let filename  = printf "%s.csv" matrikelnr
+        let filename  = filenamef $ printf "%s.csv" matrikelnr
         let fullpath  = joinPath ["hep", "KURS"++kurs, "se"++semester, filename]
         -- TODO: have to create non-existent paths
         let content   = to_csv "timestamp;instance_id;person_id;person_type;event;data\n" $ sort $ map (\row -> [
@@ -688,14 +736,14 @@ writeGroupedInstances code_objects forum_objects abgabe_objects register_objects
                         ]) group
         writeFile fullpath content
         return ()
-        ) $ groupAll code_objects forum_objects abgabe_objects register_objects
+        ) $ groupAll selector code_objects forum_objects abgabe_objects register_objects
 
-writeInstancesSingleFile code_objects forum_objects abgabe_objects register_objects =
+writeInstancesSingleFile selector filenamef code_objects forum_objects abgabe_objects register_objects =
     mapM (\course -> do
         let row      = course !! 0
         let kurs     = row !! 0
         let semester = row !! 1
-        let filename = printf "all.csv"
+        let filename = filenamef "all.csv"
         let fullpath = joinPath ["hep", "KURS"++kurs, "se"++semester, filename]
         let content = to_csv "timestamp;instance_id;person_id;person_type;event;data\n" $ sort $ map (\row -> [
                             row !! 3, -- timestamp
@@ -708,17 +756,44 @@ writeInstancesSingleFile code_objects forum_objects abgabe_objects register_obje
         {-let content = show $ course-}
         writeFile fullpath content
         return ()
-    ) $ groupByCourseSemester code_objects forum_objects abgabe_objects register_objects
+    ) $ groupByCourseSemester selector code_objects forum_objects abgabe_objects register_objects
 
-main2 = do
+main_all = do
     code_objects     <- selectFS and [inService "Code"]
     forum_objects    <- selectFS and [inService "Forum"]
     abgabe_objects   <- selectFS and [inService "Abgabe"]
     register_objects <- selectFS and [inService "Register"]
-    writeGroupedInstances code_objects forum_objects abgabe_objects register_objects
-    writeInstancesSingleFile code_objects forum_objects abgabe_objects register_objects
+    writeGroupedInstances selectHEP id code_objects forum_objects abgabe_objects register_objects
+    writeInstancesSingleFile selectHEP id code_objects forum_objects abgabe_objects register_objects
 
+-- DBS Segmentation (Exercises only)
+main_dbs_exercises = do
+    code_objects     <- selectFS and [inService "Code"]
+    forum_objects    <- selectFS and [inService "Forum"]
+    abgabe_objects   <- selectFS and [inService "Abgabe"]
+    register_objects <- selectFS and [inService "Register"]
+    writeGroupedInstances selectDBSExercisesOnly (\filename -> printf "%s_exercises.csv" $ (!!0) $ S.splitOn "." filename) code_objects forum_objects abgabe_objects register_objects
+    {-writeInstancesSingleFile selectDBSExercisesOnly (\filename -> "all_exercises.csv") code_objects forum_objects abgabe_objects register_objects-}
+
+-- DBS Segmentation (Milestones only)
+main_dbs_milestones = do
+    code_objects     <- selectFS and [inService "Code"]
+    forum_objects    <- selectFS and [inService "Forum"]
+    abgabe_objects   <- selectFS and [inService "Abgabe"]
+    register_objects <- selectFS and [inService "Register"]
+    writeGroupedInstances selectDBSMilestonesOnly (\filename -> printf "%s_milestones.csv" $ (!!0) $ S.splitOn "." filename) code_objects forum_objects abgabe_objects register_objects
+    {-writeInstancesSingleFile selectDBSMilestonesOnly (\filename -> "all_milestones.csv") code_objects forum_objects abgabe_objects register_objects-}
+
+-- DBS + AlgoDat Segmentation (no forums)
 main = do
+    code_objects     <- selectFS and [inService "Code"]
+    forum_objects    <- selectFS and [inService "Forum"]
+    abgabe_objects   <- selectFS and [inService "Abgabe"]
+    register_objects <- selectFS and [inService "Register"]
+    {-writeGroupedInstances selectAllWithoutForums (\filename -> printf "%s_noforums.csv" $ (!!0) $ S.splitOn "." filename) code_objects forum_objects abgabe_objects register_objects-}
+    writeInstancesSingleFile selectAllWithoutForums (\filename -> "all_noforums.csv") code_objects forum_objects abgabe_objects register_objects
+
+main1 = do
     -- OK
     -- DONE: update event label
     {-objects <-  selectFS and [inService "Forum"]-}
