@@ -26,6 +26,9 @@ import os
 from common import load_file
 from collections import namedtuple
 
+DEFAULT_DATETIME = "1970-01-01T00:00:00"
+DATA_ROOT = "/Users/indygemma/"
+
 # Steps:
 # 1) for a given CSV extract all instance_id elements
 # 2) for each instance_id create a virtual deadline event:
@@ -39,16 +42,16 @@ from collections import namedtuple
 
 def convert_datetime(timestamp):
     """
-        DD.MM.YYYY          -> YYYY-MM-DDT00:00:00
-    OR  YYYY-MM-DD          -> YYYY-MM-DDT00:00:00
+        DD.MM.YYYY          -> YYYY-MM-DDT23:59:59
+    OR  YYYY-MM-DD          -> YYYY-MM-DDT23:59:59
     OR  YYYY-MM-DDTHH:MM:DD -> YYYY-MM-DDTHH:MM:DD
     """
     if "T" in timestamp:
         return timestamp
     elif "-" in timestamp:
-        return timestamp + "T00:00:00"
+        return timestamp + "T23:59:59"
     splitted = timestamp.split(".")
-    return "%(year)s-%(month)s-%(day)sT00:00:00" %  dict(
+    return "%(year)s-%(month)s-%(day)sT23:59:59" %  dict(
         year=splitted[2],
         month=splitted[1],
         day=splitted[0]
@@ -74,8 +77,15 @@ def read_virtual_events(filename):
             if x != '']
 
 def read_original_log(filename):
-    return [x.split(";") for x in load_file(filename).split("\n")[1:]
-            if x != '']
+    lines = [x.split(";") for x in load_file(filename).split("\n")[1:]
+             if x != '']
+    result = []
+    for line in lines:
+        if line[0] == "''":
+            line[0] = DEFAULT_DATETIME
+        result.append(line)
+    return result
+
 
 def extract_instance_ids(log):
     """ output: [instance_id1, ...] """
@@ -88,6 +98,12 @@ def add_virtual_events(filename, virtual_events):
     log    = read_original_log(filename)
     for instance_id in extract_instance_ids(log):
         lines = add_lines(instance_id, virtual_events)
+        if "exercises" in filename:
+            # filter out every event that has "milestone" in it
+            lines = [line for line in lines if not "milestone" in line[4].lower()]
+        elif "milestones" in filename:
+            # filter out every event that has "exercise" in it
+            lines = [line for line in lines if not "exercise" in line[4].lower()]
         log += lines
     return log
 
@@ -111,7 +127,7 @@ def add_dbs_deadlines(root):
     kurs = "KURS02"
     for semester in semesters:
         virtualevent_path = os.path.join(
-            "/home/conrad/Downloads/data/data_sup/" + kurs,
+            DATA_ROOT + "Downloads/data/data_sup/" + kurs,
             semester + ".conf"
         )
         add_deadlines(root, kurs, semester, virtualevent_path)
@@ -121,7 +137,7 @@ def add_algodat_deadlines(root):
     kurs = "KURS00"
     for semester in semesters:
         virtualevent_path = os.path.join(
-            "/home/conrad/Downloads/data/data_sup/" + kurs,
+            DATA_ROOT + "Downloads/data/data_sup/" + kurs,
             semester,
             "dates.csv"
         )
@@ -187,12 +203,12 @@ def add_algodat_scores(root):
     semesters = ["se00"]
     for semester in semesters:
         deadline_virtualevent_path = os.path.join(
-            "/home/conrad/Downloads/data/data_sup/" + kurs,
+            DATA_ROOT + "Downloads/data/data_sup/" + kurs,
             semester,
             "dates.csv"
         )
         scoring_virtualevent_path = os.path.join(
-            "/home/conrad/Downloads/data/data_sup/" + kurs,
+            DATA_ROOT + "Downloads/data/data_sup/" + kurs,
             semester,
             "scoring_dates.csv"
         )
@@ -209,9 +225,9 @@ def add_algodat_scores(root):
             for instance_id in extract_instance_ids(result):
                 try:
                     score_lines = events[instance_id[1:-1]]
+                    result += score_lines
                 except:
-                    print "No scoring data for", instance_id
-                result += score_lines
+                    print "No scoring data for", instance_id, "in", os.path.join(path, filename)
                 deadline_lines = add_lines(instance_id, virtual_events)
                 result += deadline_lines
             result.sort()
