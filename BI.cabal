@@ -18,10 +18,13 @@ library
                      unix,
                      MissingH,
                      json,
-                     split
+                     split,
+                     old-locale,
+                     time
     exposed-modules: BI.Types,
                      BI.Binary,
                      BI.Api,
+                     BI.Filters,
                      BI.Common,
                      BI.Transformations,
                      BI.Queries

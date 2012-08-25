@@ -13,6 +13,9 @@ import Codec.Compression.GZip
 import qualified Data.Map as Map
 import qualified Data.ByteString.Lazy as L
 import System.IO.Unsafe
+import Data.Time.Clock
+import Data.Time.Format
+import System.Locale
 
 {-- Data Exploration API / DSL for Objects --}
 
@@ -270,24 +273,61 @@ objLeftJoin mapping t1 t2 = result
           {-updateKeys x y = x-}
           objLeftJoinCollect :: [Object] -> Object -> [Object]
           objLeftJoinCollect ys x = case filter (compare x) ys of
-            []    -> [x]
+            {-[]    -> [x]-}
+            []    -> [] -- NOTE: exact join for now to get rid of unsuccessful events
             final -> map (update x) final
+
+objFuzzyLeftJoin :: Ord a => (Object -> Object -> (a, Object))
+                 -> [(Object -> String, Object -> String)]
+                 -> [Object]
+                 -> [Object]
+                 -> [Object]
+objFuzzyLeftJoin fuzzyf mapping t1 [] = t1
+objFuzzyLeftJoin fuzzyf mapping t1 t2 = result
+    where result = concat $ map (objLeftJoinCollect t2) t1
+          -- do the two objects match anyway?
+          compare :: Object -> Object -> Bool
+          compare x y = all id $ map (\(f1,f2) -> (f1 x) == (f2 y)) mapping
+          -- merge down everything from y to x
+          update :: Object -> Object -> Object
+          update x@(Object service1 path1 tag1 theText1 ttype1 attrMap1 attrTMap1 children1)
+                 y@(Object service2 path2 tag2 theText2 ttype2 attrMap2 attrTMap2 children2) =
+                 Object service1 path1 tag1 theText1 ttype1 combinedMap combinedAttrMap children1
+                 where combinedMap     = Map.union attrMap1 attrMap2
+                       combinedAttrMap = Map.union attrTMap1 attrTMap2
+          -- merge the keys only from y to x, leave null as default values
+          {-updateKeys :: Object -> Object -> Object-}
+          {-updateKeys x y = x-}
+          objLeftJoinCollect :: [Object] -> Object -> [Object]
+          objLeftJoinCollect ys x = case filter (compare x) ys of
+            []     -> map (update x) $ fuzzyFiltered x ys
+            final  -> map (update x) final
+          fuzzyFiltered :: Object -> [Object] -> [Object]
+          fuzzyFiltered x ys = [fuzzyEntry]
+            where fuzzyEntry = snd $ (!!0) $ sorted
+                  sorted     = sort $ map (fuzzyf x) ys
+
+{-let test  = parseTime defaultTimeLocale "%d.%m.%Y" "10.05.2010" :: Maybe UTCTime-}
+{-let test2 = parseTime defaultTimeLocale "%d.%m.%Y" "11.05.2010" :: Maybe UTCTime-}
+{-diffUTCTime (fromJust test) (fromJust test2)-}
+{-diffUTCTime (fromJust test) (fromJust test2)-}
+{-let result = diffUTCTime (fromJust test) (fromJust test2)-}
 
 createObject attrs =
     Object "Code" "somePath" "a tag" (Just "Some text") (Just "int") (Map.fromList attrs) (Map.fromList []) []
 
 samplePersons = [
-    createObject [("P_id", "1"), ("LastName", "Hansen"),   ("FirstName", "Ola"), ("Address", "Timoteivn 10"), ("City", "Sandnes")],
-    createObject [("P_id", "2"), ("LastName", "Svendson"), ("FirstName", "Tove"), ("Address", "Borgvn 23"), ("City", "Sandnes")],
-    createObject [("P_id", "3"), ("LastName", "Pettersen"), ("FirstName", "Kari"), ("Address", "Storgt 20"), ("City", "Stavanger")]
+    createObject [("P_id", "1"), ("LastName", "Hansen"),   ("FirstName", "Ola"), ("Address", "Timoteivn 10"), ("City", "Sandnes"), ("Date", "2010-11-10")],
+    createObject [("P_id", "2"), ("LastName", "Svendson"), ("FirstName", "Tove"), ("Address", "Borgvn 23"), ("City", "Sandnes"), ("Date", "2010-12-05")],
+    createObject [("P_id", "3"), ("LastName", "Pettersen"), ("FirstName", "Kari"), ("Address", "Storgt 20"), ("City", "Stavanger"), ("Date", "2011-01-10")]
     ]
 
 sampleOrders = [
-    createObject [("O_Id","1"), ("OrderNo", "77895"),  ("P_Id", "3")],
-    createObject [("O_Id","2"), ("OrderNo", "44678"),  ("P_Id", "3")],
-    createObject [("O_Id","3"), ("OrderNo", "22456"),  ("P_Id", "1")],
-    createObject [("O_Id","4"), ("OrderNo", "24562"),  ("P_Id", "1")],
-    createObject [("O_Id","5"), ("OrderNo", "347641"), ("P_Id", "5")]
+    createObject [("O_Id","1"), ("OrderNo", "77895"),  ("P_Id", "3"), ("Date", "2010-11-10")],
+    createObject [("O_Id","2"), ("OrderNo", "44678"),  ("P_Id", "3"), ("Date", "2010-12-05")],
+    createObject [("O_Id","3"), ("OrderNo", "22456"),  ("P_Id", "1"), ("Date", "2011-01-10")],
+    createObject [("O_Id","4"), ("OrderNo", "24562"),  ("P_Id", "1"), ("Date", "2010-11-11")],
+    createObject [("O_Id","5"), ("OrderNo", "347641"), ("P_Id", "5"), ("Date", "2010-12-06")]
     ]
 
 samplePersonsOrdersJoin = extract [
@@ -298,9 +338,22 @@ samplePersonsOrdersJoin = extract [
         exAttr "City",
         exAttr "P_Id",
         exAttr "O_Id",
-        exAttr "OrderNo"
+        exAttr "OrderNo",
+        exAttr "Date"
     ] $
-    objLeftJoin [(exAttr "P_id", exAttr "P_Id")] samplePersons sampleOrders
+    {-objLeftJoin [(exAttr "P_id", exAttr "P_Id")] samplePersons sampleOrders-}
+    objFuzzyLeftJoin fuzzyOrder [(exAttr "Date", exAttr "Date")] sampleOrders samplePersons
+    where fuzzyOrder x y = (abs $ diffUTCTime (toDate x) (toDate y), y)
+          toDate x = fromJust $ doParse $ exAttr "Date" x
+          doParse x = parseTime defaultTimeLocale "%Y-%m-%d" x :: Maybe UTCTime
+
+{-[-}
+{-["1","Hansen","Ola","Timoteivn 10","Sandnes","3","1","77895","2010-11-10"],-}
+{-["2","Svendson","Tove","Borgvn 23","Sandnes","3","2","44678","2010-12-05"],-}
+{-["3","Pettersen","Kari","Storgt 20","Stavanger","1","3","22456","2011-01-10"],-}
+{-["1","Hansen","Ola","Timoteivn 10","Sandnes","1","4","24562","2010-11-11"],-}
+{-["2","Svendson","Tove","Borgvn 23","Sandnes","5","5","347641","2010-12-06"]-}
+{-]-}
 
 sampleMap :: Map.Map Int ([String] -> String)
 sampleMap = Map.fromList [(5, \key -> "student"),(3, \key -> "lol")]

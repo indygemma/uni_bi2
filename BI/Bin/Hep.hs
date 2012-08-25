@@ -2,6 +2,7 @@ module Main where
 
 import BI.Api
 import BI.Types
+import BI.Filters
 import Data.List
 import qualified Data.List.Split as S
 import qualified BI.Queries as Q
@@ -11,6 +12,10 @@ import System.FilePath
 import System.Posix.Files
 import System.Time
 import Text.Printf
+import Data.Time.Clock
+import Data.Time.Format
+import System.Locale
+import Data.Maybe
 
 -- TODO: wrap JSON column around with single quotes
 
@@ -115,7 +120,7 @@ selectRegistrations filterf objects =
         T.upAttrValue "person_id" "matrikelnr",
         T.upAttr      "person_type" "student"
     ]
-    $ filterf
+    $ (evalFilter filterf)
     $ hepCourses
     $ mergeWithCourses objects
     $ objRegistrationData objects
@@ -333,7 +338,7 @@ upAssessmentResultTime key x@(Object service path tag theText ttype attrMap attr
           descValue = (!!0) $ S.splitOn " " $ exAttr "test_desc" x
           -- Assumes input in "DD.MM.YY" format and returns an ISO Date in "YY-MM-DDT00:00:00"
           toDatetime :: String -> String
-          toDatetime x = printf "20%s-%s-%sT23:59:59" year month day
+          toDatetime x = printf "20%s-%s-%sT12:00:00" year month day
             where year = s !! 2
                   month = s !! 1
                   day = s !! 0
@@ -369,6 +374,7 @@ selectAssessmentResults filterf objects =
         "user_id",
         "id",
         "test_desc",
+        "test_date",
         "test_id",
         "result_id",
         "points",
@@ -387,48 +393,58 @@ selectAssessmentResults filterf objects =
               upAssessmentResultTime "iso_datetime",
               T.upAttrValue          "person_id" "lecturer_id",
               T.upAttr               "person_type" "lecturer"] -- it's always a lecturer who gives points out to students
-    $ filterf
     $ hepCourses
-    $ objAssessmentResultsWithCoursesPersonsTestsPresenceDateFirstLecturer objects
+    $ objAssessmentResultsWithCoursesPersonsTestsPresenceDateFirstLecturer filterf objects
 
-objAssessmentResultsWithCoursesPersonsTestsPresenceDateFirstLecturer objects =
+objAssessmentResultsWithCoursesPersonsTestsPresenceDateFirstLecturer filterf objects =
     objLeftJoin [(exService, exService),
                  (exAttr "course_id", exAttr "course_id"),
                  (exAttr "group_id", exAttr "id")]
-                 (objAssessmentResultsWithCoursesPersonsTestsPresenceDate objects)
-                 (objAssessmentFirstLecturer objects)
+                 (objAssessmentResultsWithCoursesPersonsTestsPresenceDate filterf objects)
+                 (objAssessmentFirstLecturer filterf objects)
 
-objAssessmentResultsWithCoursesPersonsTestsPresenceDate objects =
-    objLeftJoin [(exService, exService),
-                   (exAttr "course_id", exAttr "course_id"),
-                   (exAttr "group_id", exAttr "group_id"),
-                   (exAttr "test_id", exAttr "task_id")]
-                  (objAssessmentResultsWithCoursesPersonsTests objects)
-                  (objAbgabeTasks objects)
+fuzzyDate x y = (abs $ diffUTCTime (toDate "test_date" x) (toDate "presence" y), y)
+    where toDate a x = case doParse $ exAttr a x of
+            Just date -> date
+            Nothing   -> fromJust $ doParse "1970-01-01"
+          doParse x = parseTime defaultTimeLocale "%Y-%m-%d" x :: Maybe UTCTime
 
-objAssessmentResultsWithCoursesPersonsTests objects =
+objAssessmentResultsWithCoursesPersonsTestsPresenceDate filterf objects =
+    case filterf of
+        FDBSExercise  -> doJoin (exAttr "test_date", exAttr "presence")
+        FDBSMilestone -> doJoin (exAttr "test_id"  , exAttr "task_id")
+    where doJoin cond = objLeftJoin [
+                           (exService, exService),
+                           (exAttr "course_id", exAttr "course_id"),
+                           (exAttr "group_id", exAttr "group_id"),
+                           cond]
+                           (objAssessmentResultsWithCoursesPersonsTests filterf objects)
+                           (objAbgabeTasks filterf objects)
+
+objAssessmentResultsWithCoursesPersonsTests filterf objects =
     objLeftJoin [(exService, exService),
                  (exAttr "course_id", exAttr "course_id"),
                  (exAttr "group", exAttr "group_id"),
                  (exAttr "result_id", exAttr "test_id")]
-                 (objAssessmentResultsWithCoursesPersons objects)
-                 (objAbgabeTest objects)
+                 (objAssessmentResultsWithCoursesPersons filterf objects)
+                 (objAbgabeTest filterf objects)
 
-objAssessmentResultsWithCoursesPersons objects =
+objAssessmentResultsWithCoursesPersons filterf objects =
     (objLeftJoin [(exService, exService),
                   (exAttr "course_id", exAttr "course_id"),
                   (exAttr "user_id", exAttr "id")]
-                  (objAssessmentResultsWithCourses objects)
-                  (selectAbgabePersons objects))
+                  (objAssessmentResultsWithCourses filterf objects)
+                  (selectAbgabePersons filterf objects))
 
-objAssessmentResultsWithCourses objects =
+objAssessmentResultsWithCourses filterf objects =
     (objLeftJoin [(exService, exService),
                   (exAttr "course_id", exAttr "id")]
-                 (Q.objAssessmentResults objects)
+                 (Q.objAssessmentResults filterf objects)
                  (Q.objCourses objects))
 
-objAssessmentFirstLecturer objects =
-    update [
+objAssessmentFirstLecturer filterf objects =
+    (evalFilter filterf)
+    $ update [
         pullUp (\o -> return . exAttr "id" $ (!!0) $ oChildren o) "lecturer_id",
         T.upCourseId "course_id",
         T.upAttrLookup "service" exService,
@@ -436,11 +452,29 @@ objAssessmentFirstLecturer objects =
     ]
     $ select and [hasTag "group", inService "Abgabe", inPath "course.xml"] objects
 
-objAbgabeTest objects =
-    update [
+germanToEnglishDate date = case length date == length "DD.MM.YY" of
+    True  -> germanToEnglishDate' date
+    False -> date
+
+germanToEnglishDate' date = printf "%s-%s-%s" year month day
+    -- germanDate: DD.MM.YY
+    where germanDate = S.splitOn "." date
+          year       = "20" ++ (germanDate !! 2)
+          month      = germanDate !! 1
+          day        = germanDate !! 0
+
+upGermanToEnglishDate targetKey sourceKey x@(Object service path tag theText ttype attrMap attrTMap children) =
+    Object service path tag theText ttype newMap attrTMap children
+    where newMap = Map.insert targetKey englishDate attrMap
+          englishDate = germanToEnglishDate $ exAttr sourceKey x
+
+objAbgabeTest filterf objects =
+    (evalFilter filterf)
+    $ update [
         T.upCourseId "course_id",
         T.upAttrLookup "service" exService,
         T.upAttrValue "test_id" "id",
+        upGermanToEnglishDate "test_date" "desc",
         T.upAttrValue "test_desc" "desc"
     ]
     $ select and [hasTag "test"]
@@ -470,33 +504,32 @@ selectAssessmentPlus filterf objects =
                 "kurs",
                 "semester"
     ]]
-    $ filterf
     $ update [T.upAttr             "event" "plus",
               T.upAttrValue        "matrikelnr" "user_id",
               T.upAttrValue        "person_id" "lecturer_id",
               T.upAttr             "person_type" "lecturer",
               upAssessmentPlusTime "iso_datetime"]
     $ hepCourses
-    $ objAssessmentPlusWithCoursesPersonsFirstLecturer objects
+    $ objAssessmentPlusWithCoursesPersonsFirstLecturer filterf objects
 
-objAssessmentPlusWithCoursesPersonsFirstLecturer objects =
+objAssessmentPlusWithCoursesPersonsFirstLecturer filterf objects =
     objLeftJoin [(exService, exService),
                  (exAttr "course_id", exAttr "course_id"),
                  (exAttr "group", exAttr "id")]
-                 (objAssessmentPlusWithCoursesPersons objects)
-                 (objAssessmentFirstLecturer objects)
+                 (objAssessmentPlusWithCoursesPersons filterf objects)
+                 (objAssessmentFirstLecturer filterf objects)
 
-objAssessmentPlusWithCoursesPersons objects =
+objAssessmentPlusWithCoursesPersons filterf objects =
     objLeftJoin [(exService, exService),
                   (exAttr "course_id", exAttr "course_id"),
                   (exAttr "user_id", exAttr "id")]
-                  (objAssessmentPlusWithCourses objects)
-                  (selectAbgabePersons objects)
+                  (objAssessmentPlusWithCourses filterf objects)
+                  (selectAbgabePersons filterf objects)
 
-objAssessmentPlusWithCourses objects =
+objAssessmentPlusWithCourses filterf objects =
     objLeftJoin [(exService, exService),
                  (exAttr "course_id", exAttr "id")]
-                 (Q.objAssessmentPlus objects)
+                 (Q.objAssessmentPlus filterf objects)
                  (Q.objCourses objects)
 
 upFeedback key x@(Object service path tag theText ttype attrMap attrTMap children) =
@@ -521,7 +554,6 @@ selectFeedbackCourses filterf objects =
         "matrikelnr", "user_id", "author", "type", "group", "group_id", "course_id", "kurs", "semester",
         "comment_length", "task", "subtask", "tag", "id", "presence", "from", "to"
     ]]
-    $ filterf
     $ hepCourses
     $ update [upFeedback   "event",
               T.upAttrValue  "matrikelnr"  "user_id",
@@ -529,39 +561,40 @@ selectFeedbackCourses filterf objects =
               T.upAttrValue  "person_id"   "author",
               T.upAttrValue  "person_type" "type",
               T.upAttrValue  "iso_datetime" "to"]
-    $ objFeedbackWithCoursesPersonsTypesPresenceDate objects
+    $ objFeedbackWithCoursesPersonsTypesPresenceDate filterf objects
 
-objFeedbackWithCoursesPersonsTypesPresenceDate objects =
+objFeedbackWithCoursesPersonsTypesPresenceDate filterf objects =
       objLeftJoin [(exService, exService),
                    (exAttr "course_id", exAttr "course_id"),
                    (exAttr "group_id", exAttr "group_id"),
                    (exAttr "task", exAttr "task_id")]
-                  (objFeedbackWithCoursesPersonsTypes objects)
-                  (objAbgabeTasks objects)
+                  (objFeedbackWithCoursesPersonsTypes filterf objects)
+                  (objAbgabeTasks filterf objects)
 
-objFeedbackWithCoursesPersonsTypes objects =
+objFeedbackWithCoursesPersonsTypes filterf objects =
       objLeftJoin [(exService, exService),
                    (exAttr "course_id", exAttr "course_id"),
                    (exAttr "group", exAttr "group_id"),
                    (exAttr "author", exAttr "id")]
-                  (objFeedbackWithCoursesPersons objects)
-                  (selectAbgabeCourseGroups objects)
+                  (objFeedbackWithCoursesPersons filterf objects)
+                  (selectAbgabeCourseGroups filterf objects)
 
-objFeedbackWithCoursesPersons objects =
+objFeedbackWithCoursesPersons filterf objects =
       (objLeftJoin [(exService, exService),
                     (exAttr "course_id", exAttr "course_id"),
                     (exAttr "user_id", exAttr "id")]
-                    (objFeedbackWithCourses objects)
-                    (selectAbgabePersons objects))
+                    (objFeedbackWithCourses filterf objects)
+                    (selectAbgabePersons filterf objects))
 
-objFeedbackWithCourses objects =
+objFeedbackWithCourses filterf objects =
       (objLeftJoin [(exService, exService),
                     (exAttr "course_id", exAttr "id")]
-                   (Q.objFeedback objects)
+                   (Q.objFeedback filterf objects)
                    (Q.objCourses objects))
 
-objAbgabeTasks objects =
-    update [T.upCourseId "course_id",
+objAbgabeTasks filterf objects =
+    (evalFilter filterf)
+    $ update [T.upCourseId "course_id",
             T.upAttrLookup "service" exService,
             T.upAttrValue "task_id" "id"]
     $ select and [hasTag "task"]
@@ -569,8 +602,9 @@ objAbgabeTasks objects =
     $ update [pushDown "id" "group_id"]
     $ select and [hasTag "group", inPath "tasks.xml", inService "Abgabe"] objects
 
-selectAbgabeCourseGroups objects =
-    update [
+selectAbgabeCourseGroups filterf objects =
+    evalFilter filterf
+    $ update [
         T.upAttrLookup "type" exTag
     ]
     $ select or [hasTag "lecturer", hasTag "tutor"]
@@ -592,9 +626,10 @@ selectAbgabeCourseGroups objects =
 -- email="string"
 -- group="2"
 -- team=""
-selectAbgabePersons objects =
-    update [T.upAttrLookup "service" exService,
-            T.upCourseId "course_id"]
+selectAbgabePersons filterf objects =
+    evalFilter filterf
+    $ update [T.upAttrLookup "service" exService,
+              T.upCourseId "course_id"]
     $ select and [hasTag "person", inPath "persons.xml"] objects
 
 -- DONE: have to differentiate between exercise and milestone!
@@ -623,7 +658,6 @@ selectAbgabeUploads filterf objects =
         "subtask_id",
         "filename"
     ]]
-    $ filterf
     $ update [
         upUploadEvent "event",
         T.upAttr      "person_type" "student",
@@ -631,23 +665,12 @@ selectAbgabeUploads filterf objects =
     ]
     $ hepCourses
     $ mergeWithCourses objects
-    $ objUploadedFiles objects
-
-filterAbgabeDBSExerciseCourse = filter isExerciseEvent
-    where isExerciseEvent o | exAttr "course_id" o == "1"  = True
-                            | exAttr "course_id" o == "9"  = True
-                            | exAttr "course_id" o == "16" = True
-                            | otherwise                    = False
-
-filterAbgabeDBSMilestoneCourse = filter isMilestoneEvent
-    where isMilestoneEvent o | exAttr "course_id" o == "2"  = True
-                             | exAttr "course_id" o == "10" = True
-                             | exAttr "course_id" o == "17" = True
-                             | otherwise                    = False
+    $ objUploadedFiles filterf objects
 
 -- DONE: extract all the other files: sql, zip, find out correct upload type (using course_id)
-objUploadedFiles objects =
-    update [T.upCourseId         "course_id" ,
+objUploadedFiles filterf objects =
+    (evalFilter filterf)
+    $ update [T.upCourseId         "course_id" ,
             T.upAbgabeMatrikelNr "matrikelnr",
             T.upAbgabeTaskId     "task_id"   ,
             T.upAbgabeSubTaskId  "subtask_id",
@@ -678,42 +701,50 @@ groupByCourseSemester selector code_objects forum_objects abgabe_objects registe
 selectHEP extraction code_objects forum_objects abgabe_objects register_objects = combined
     where forum           = extraction $ selectForumEntries forum_objects
           code            = extraction $ selectCodeResults code_objects
-          abgabe_pluses   = extraction $ selectAssessmentPlus id abgabe_objects
-          abgabe_results  = extraction $ selectAssessmentResults id abgabe_objects
-          abgabe_feedback = extraction $ selectFeedbackCourses id abgabe_objects
-          abgabe_uploads  = extraction $ selectAbgabeUploads id abgabe_objects
-          register        = extraction $ selectRegistrations id register_objects
+          abgabe_pluses   = extraction $ selectAssessmentPlus FID abgabe_objects
+          abgabe_results  = extraction $ selectAssessmentResults FID abgabe_objects
+          abgabe_feedback = extraction $ selectFeedbackCourses FID abgabe_objects
+          abgabe_uploads  = extraction $ selectAbgabeUploads FID abgabe_objects
+          register        = extraction $ selectRegistrations FID register_objects
           combined        = concat [forum,code,abgabe_pluses,abgabe_results,abgabe_feedback, abgabe_uploads, register]
 
 selectDBSExercisesOnly extraction code_objects forum_objects abgabe_objects register_objects = concat [
     -- abgabe uploads
-    extraction $ selectAbgabeUploads filterAbgabeDBSExerciseCourse abgabe_objects,
+    extraction $ selectAbgabeUploads FDBSExercise abgabe_objects,
     -- abgabe plus
-    extraction $ selectAssessmentPlus filterAbgabeDBSExerciseCourse abgabe_objects,
+    extraction $ selectAssessmentPlus FDBSExercise abgabe_objects,
     -- abgabe results
-    extraction $ selectAssessmentResults filterAbgabeDBSExerciseCourse abgabe_objects
+    extraction $ selectAssessmentResults FDBSExercise abgabe_objects
     ]
 
 selectDBSMilestonesOnly extraction code_objects forum_objects abgabe_objects register_objects = concat [
         -- abgabe plus
-        extraction $ selectAssessmentPlus filterAbgabeDBSMilestoneCourse abgabe_objects,
+        extraction $ selectAssessmentPlus FDBSMilestone abgabe_objects,
         -- abgabe results
-        extraction $ selectAssessmentResults filterAbgabeDBSMilestoneCourse abgabe_objects,
+        extraction $ selectAssessmentResults FDBSMilestone abgabe_objects,
         -- abgabe feedback
-        extraction $ selectFeedbackCourses filterAbgabeDBSMilestoneCourse abgabe_objects,
+        extraction $ selectFeedbackCourses FDBSMilestone abgabe_objects,
         -- abgabe uploads
-        extraction $ selectAbgabeUploads filterAbgabeDBSMilestoneCourse abgabe_objects,
+        extraction $ selectAbgabeUploads FDBSMilestone abgabe_objects,
         -- registrations
-        extraction $ selectRegistrations id register_objects
+        extraction $ selectRegistrations FID register_objects
     ]
 
-selectAllWithoutForums extraction code_objects forum_objects abgabe_objects register_objects = concat [
+selectDBSWithoutForums extraction code_objects forum_objects abgabe_objects register_objects = concat [
+      extraction $ selectAssessmentPlus    FDBSExercise abgabe_objects,
+      extraction $ selectAssessmentResults FDBSExercise abgabe_objects,
+      extraction $ selectAssessmentResults FDBSMilestone abgabe_objects,
+      extraction $ selectFeedbackCourses   FDBSExercise abgabe_objects,
+      extraction $ selectFeedbackCourses   FDBSMilestone abgabe_objects,
+      extraction $ selectAbgabeUploads     FDBSExercise abgabe_objects,
+      extraction $ selectAbgabeUploads     FDBSMilestone abgabe_objects,
+      extraction $ selectRegistrations     FDBSExercise register_objects,
+      extraction $ selectRegistrations     FDBSMilestone register_objects
+    ]
+
+selectADSWithoutForums extraction code_objects forum_objects abgabe_objects register_objects = concat [
       extraction $ selectCodeResults code_objects,
-      extraction $ selectAssessmentPlus id abgabe_objects,
-      extraction $ selectAssessmentResults id abgabe_objects,
-      extraction $ selectFeedbackCourses id abgabe_objects,
-      extraction $ selectAbgabeUploads id abgabe_objects,
-      extraction $ selectRegistrations id register_objects
+      extraction $ selectRegistrations FID register_objects
     ]
 
 writeGroupedInstances selector filenamef code_objects forum_objects abgabe_objects register_objects =
@@ -790,10 +821,12 @@ main = do
     forum_objects    <- selectFS and [inService "Forum"]
     abgabe_objects   <- selectFS and [inService "Abgabe"]
     register_objects <- selectFS and [inService "Register"]
-    {-writeGroupedInstances selectAllWithoutForums (\filename -> printf "%s_noforums.csv" $ (!!0) $ S.splitOn "." filename) code_objects forum_objects abgabe_objects register_objects-}
-    writeInstancesSingleFile selectAllWithoutForums (\filename -> "all_noforums.csv") code_objects forum_objects abgabe_objects register_objects
+    {-writeGroupedInstances selectDBSWithoutForums (\filename -> printf "%s_noforums.csv" $ (!!0) $ S.splitOn "." filename) code_objects forum_objects abgabe_objects register_objects-}
+    {-writeInstancesSingleFile selectDBSWithoutForums (\filename -> "all_noforums.csv") code_objects forum_objects abgabe_objects register_objects-}
+    {-writeGroupedInstances selectADSWithoutForums (\filename -> printf "%s_noforums.csv" $ (!!0) $ S.splitOn "." filename) code_objects forum_objects abgabe_objects register_objects-}
+    writeInstancesSingleFile selectADSWithoutForums (\filename -> "all_noforums.csv") code_objects forum_objects abgabe_objects register_objects
 
-main1 = do
+main_test = do
     -- OK
     -- DONE: update event label
     {-objects <-  selectFS and [inService "Forum"]-}
@@ -802,8 +835,8 @@ main1 = do
     -- OK
     -- DONE: update event label
     -- TODOLATER: some entries don't have timestamps, why? We can skip this for now by removing these lines...does not affect outcome
-    objects <-  selectFS and [inService "Code"]
-    writeFile "test_code.csv" $ to_csv "" $ extractHEPStudentGroup $ selectCodeResults objects
+    {-objects <-  selectFS and [inService "Code"]-}
+    {-writeFile "test_code.csv" $ to_csv "" $ extractHEPStudentGroup $ selectCodeResults objects-}
 
     -- OK
     -- DONE: update event label
@@ -813,7 +846,11 @@ main1 = do
     -- OK
     -- DONE: update event label
     {-objects <-  selectFS and [inService "Abgabe"]-}
-    {-writeFile "test_assresults.csv" $ to_csv "" $ extractHEPStudentGroup $ selectAssessmentResults objects-}
+    {-writeFile "test_assresults.csv" $ to_csv "" $ extractHEPStudentGroup $ selectAssessmentResults id objects-}
+
+    objects <- selectFS and [inService "Abgabe"]
+    writeFile "test_assresults_milestones.csv" $ to_csv "" $ extractHEPStudentGroup $ selectAssessmentResults FDBSMilestone objects
+    {-writeFile "test_assresults_milestones.csv" $ show $ objAssessmentResultsWithCoursesPersonsTestsPresenceDate FDBSMilestone objects-}
 
     -- OK
     -- DONE: update event label

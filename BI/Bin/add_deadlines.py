@@ -27,7 +27,8 @@ from common import load_file
 from collections import namedtuple
 
 DEFAULT_DATETIME = "1970-01-01T00:00:00"
-DATA_ROOT = "/Users/indygemma/"
+#DATA_ROOT = "/Users/indygemma/"
+DATA_ROOT = "/home/conrad/"
 
 # Steps:
 # 1) for a given CSV extract all instance_id elements
@@ -99,8 +100,8 @@ def add_virtual_events(filename, virtual_events):
     for instance_id in extract_instance_ids(log):
         lines = add_lines(instance_id, virtual_events)
         if "exercises" in filename:
-            # filter out every event that has "milestone" in it
-            lines = [line for line in lines if not "milestone" in line[4].lower()]
+            # filter out every event that has "milestone" and "project" in it
+            lines = [line for line in lines if not "milestone" in line[4].lower() and not "project" in line[4].lower()]
         elif "milestones" in filename:
             # filter out every event that has "exercise" in it
             lines = [line for line in lines if not "exercise" in line[4].lower()]

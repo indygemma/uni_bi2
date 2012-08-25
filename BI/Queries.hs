@@ -2,6 +2,7 @@ module BI.Queries where
 
 import BI.Api
 import BI.Types
+import BI.Filters
 import qualified BI.Transformations as T
 import Data.List
 import qualified Data.Map as Map
@@ -56,7 +57,7 @@ selectAssessmentPlus objects =
             exAttr "course_id",
             exAttr "user_id",
             exAttr "date"]
-        $ objAssessmentPlus objects
+        $ objAssessmentPlus FID objects
 
 selectAssessmentResults objects =
         unique
@@ -66,27 +67,28 @@ selectAssessmentResults objects =
             exAttr "user_id",
             exAttr "id",
             exText]
-        $ objAssessmentResults objects
+        $ objAssessmentResults FID objects
 
-objAssessmentPlus objects =
+objAssessmentPlus filterf objects =
         update [
             T.upAttrValue "plus_date" "date"
         ]
         $ select and [hasTag "plus"]
         $ liftChildren and [hasTag "plus"]
-        $ objAssessment objects
+        $ objAssessment filterf objects
 
-objAssessmentResults objects =
+objAssessmentResults filterf objects =
         update [
             T.upAttrValue "result_id" "id",
             T.upAttrLookup "points" exText
         ]
         $ select and [hasTag "result"]
         $ liftChildren and [hasTag "result"]
-        $ objAssessment objects
+        $ objAssessment filterf objects
 
-objAssessment objects =
-    update [pushDown "id" "user_id",
+objAssessment filterf objects =
+    (evalFilter filterf)
+    $ update [pushDown "id" "user_id",
             pushDown "course_id" "course_id",
             pushDown "service" "service",
             T.upCourseId "course_id",
@@ -102,13 +104,14 @@ selectFeedback objects =
         exAttr "subtask",
         exAttr "author",
         exAttr "comment_length"]
-    $ objFeedback objects
+    $ objFeedback FID objects
 
-objFeedback objects =
+objFeedback filterf objects =
     update [upLength "comment" "comment_length",
             pullUp (\o -> concat $ extract [exText] [o]) "comment"]
     $ select and [hasTag "comment"]
     $ liftChildren and [hasTag "comment"]
+    $ (evalFilter filterf)
     $ update [pushDown "id" "user_id",
               pushDown "course_id" "course_id",
               T.upCourseId "course_id",
