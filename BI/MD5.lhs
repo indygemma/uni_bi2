@@ -1,8 +1,8 @@
 > module BI.MD5 (md5) where
 
-> import Char
-> import Bits
-> import Word
+> import Data.Char
+> import Data.Bits
+> import Data.Word
 
 > type ABCD = (Word32, Word32, Word32, Word32)
 > type XYZ = (Word32, Word32, Word32)

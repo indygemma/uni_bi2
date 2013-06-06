@@ -58,7 +58,7 @@ extractWithSchema root output = do
 main2 = do
     objects <- mapM (\x -> extractWithSchema (fst x) (snd x)) paths
     saveObjects (concat objects) "extract.raw"
-    where paths = buildPaths "/home/conrad/Downloads/data/" ["Register", "Forum", "Code", "Abgabe"]
+    where paths = buildPaths "/home/conrad/Downloads/data/" ["Register", "Forum", "Code", "Abgabe"] -- TODO: should not be hard coded
 
 monthToInt :: Month -> Int
 monthToInt month = case month of
@@ -169,4 +169,4 @@ main = do
     let results2 = results `using` parBuffer 4 rwhnf
     saveObjects (concat results2) "all_extracted.raw"
     print "done"
-    where paths = buildPaths "/home/conrad/Downloads/data/" ["Register", "Forum", "Abgabe", "Code"]
+    where paths = buildPaths "/home/conrad/Downloads/data/" ["Register", "Forum", "Abgabe", "Code"] -- TODO: should not be hard coded

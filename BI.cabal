@@ -10,7 +10,7 @@ library
                      derive,
                      filepath,
                      directory,
-                     hxt,
+                     hxt ==9.3.0.1,
                      bytestring,
                      zlib,
                      parallel,
@@ -24,7 +24,7 @@ library
     exposed-modules: BI.Types,
                      BI.Binary,
                      BI.Api,
-                     BI.Filters,
+                     --BI.Filters, -- TODO: where is this file?
                      BI.Common,
                      BI.Transformations,
                      BI.Queries
@@ -36,7 +36,7 @@ executable biextract
 
 executable ppxml
     main-is:       BI/Bin/ppxml.hs
-    build-depends: haskell98
+    --build-depends: haskell98
     ghc-options:     -Wall -O2 -threaded
 
 executable bicode
